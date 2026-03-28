@@ -50,8 +50,18 @@
             </div>
         </div>
         
+        <div class="card" style="background: #f0f9ff; border: 2px solid #0ea5e9;">
+            <h2>✏️ 发送留言</h2>
+            <div style="margin-bottom: 15px;">
+                <textarea id="message-content" placeholder="输入留言内容..." 
+                          style="width: 100%; height: 80px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"></textarea>
+            </div>
+            <button onclick="sendMessage()" class="btn" style="background: #0ea5e9;">发送留言</button>
+            <div id="send-result" style="margin-top: 10px;"></div>
+        </div>
+        
         <div class="card">
-            <h2>📨 匿名留言</h2>
+            <h2>📨 收到的留言</h2>
             <div id="guest-messages">
                 <div class="empty">加载中...</div>
             </div>
@@ -73,6 +83,41 @@
     </div>
 
     <script>
+        // 发送留言
+        async function sendMessage() {
+            const content = document.getElementById('message-content').value.trim();
+            if (!content) {
+                alert('请输入留言内容');
+                return;
+            }
+            
+            const resultDiv = document.getElementById('send-result');
+            resultDiv.innerHTML = '<span style="color: #666;">发送中...</span>';
+            
+            try {
+                const response = await fetch('/api/guest/leave-message', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ content: content })
+                });
+                
+                const data = await response.json();
+                if (data.status === 'ok') {
+                    resultDiv.innerHTML = '<span style="color: #28a745;">✅ 留言发送成功！</span>';
+                    document.getElementById('message-content').value = '';
+                    // 刷新留言列表
+                    setTimeout(loadGuestMessages, 1000);
+                } else {
+                    resultDiv.innerHTML = '<span style="color: #dc3545;">❌ 发送失败</span>';
+                }
+            } catch (error) {
+                console.error('发送失败:', error);
+                resultDiv.innerHTML = '<span style="color: #dc3545;">❌ 发送失败: ' + error.message + '</span>';
+            }
+        }
+        
         // 生成验证码
         async function generateCode() {
             const portalUrl = document.getElementById('friend-portal-url').value.trim();
