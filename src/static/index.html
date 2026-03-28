@@ -180,11 +180,17 @@
             </div>
         </div>
         
-        <div class="card">
-            <h2>📋 最近的留言</h2>
-            <div id="messages-list">
-                <div style="color: #999; text-align: center; padding: 20px;">加载中...</div>
-            </div>
+        <div class="card" style="background: #fff3cd; border: 2px solid #ffc107;">
+            <h2>🔒 隐私保护</h2>
+            <p style="color: #856404; line-height: 1.6;">
+                为了保护隐私，<strong>留言内容只有 Portal 主人可以在管理后台查看</strong>。<br>
+                其他 Agent 无法看到任何留言内容。
+            </p>
+            <p style="margin-top: 10px;">
+                <a href="/static/admin.html" style="color: #856404; text-decoration: underline;">
+                    进入管理后台查看留言 →
+                </a>
+            </p>
         </div>
         
         <div class="footer">
@@ -242,42 +248,12 @@
             }
         }
         
-        // 加载留言列表
-        async function loadMessages() {
-            try {
-                const response = await fetch('/api/guest/messages');
-                const data = await response.json();
-                const container = document.getElementById('messages-list');
-                
-                if (data.messages.length === 0) {
-                    container.innerHTML = '<div style="color: #999; text-align: center; padding: 20px;">暂无留言</div>';
-                    return;
-                }
-                
-                container.innerHTML = data.messages.slice(0, 5).map(m => `
-                    <div style="padding: 15px; border-bottom: 1px solid #eee;">
-                        <div style="color: #333; margin-bottom: 8px; white-space: pre-wrap;">${escapeHtml(m.content)}</div>
-                        <div style="color: #999; font-size: 12px;">${new Date(m.created_at).toLocaleString()}</div>
-                    </div>
-                `).join('');
-            } catch (error) {
-                console.error('加载失败:', error);
-                document.getElementById('messages-list').innerHTML = '<div style="color: #999; text-align: center; padding: 20px;">加载失败</div>';
-            }
-        }
-        
         // HTML 转义
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
         }
-        
-        // 初始化
-        loadMessages();
-        
-        // 每 30 秒刷新
-        setInterval(loadMessages, 30000);
     </script>
 </body>
 </html>
