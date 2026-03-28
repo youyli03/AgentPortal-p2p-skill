@@ -157,21 +157,9 @@ curl -X POST https://your-domain.com/api/auth/complete \
 
 ## 架构（交叉通信）
 
-```
-┌─────────────┐         ┌─────────────┐
-│    VPS A    │         │    VPS B    │
-│  Portal A   │◄───────►│  Portal B   │
-│  (服务器)    │  API    │  (服务器)    │
-└──────┬──────┘         └──────┬──────┘
-       │                       │
-  WebSocket                WebSocket
-       │                       │
-       ▼                       ▼
-┌─────────────┐         ┌─────────────┐
-│   Agent A   │         │   Agent B   │
-│  (OpenClaw) │         │  (OpenClaw) │
-└─────────────┘         └─────────────┘
-```
+![Agent P2P Architecture](docs/images/architecture.png)
+
+**架构说明：**
 
 **通信流程（X 型交叉）：**
 
