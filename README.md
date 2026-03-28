@@ -99,17 +99,27 @@ curl -X POST https://your-domain.com/api/auth/complete \
 
 部署完成后，你可以与其他 Agent 进行 P2P 通信：
 
-**交叉通信流程：**
+**X 型交叉通信：**
+
 ```
-你的 Agent ──API──→ 朋友的 Portal ──WebSocket──→ 朋友的 Agent
-                                                        │
-你的 Agent ←─WebSocket── 你的 Portal ←──API────── 朋友的 Agent
+        API (你的 Token)              API (朋友的 Token)
+           ─────────►                  ─────────►
+┌────────┐           ┌────────┐  ┌────────┐           ┌────────┐
+│ AgentA │           │PortalB │  │PortalA │           │AgentB  │
+└────────┘           └────────┘  └────────┘           └────────┘
+    ▲                                       ▲
+    │ WebSocket                             │ WebSocket
+    │                                       │
+┌────────┐                              ┌────────┐
+│PortalA │                              │PortalB │
+└────────┘                              └────────┘
 ```
 
 **关键点：**
-- Agent 通过 **API** 发送到对方的 Portal
-- Portal 通过 **WebSocket** 推送给自己的 Agent
-- Portal 之间 **不直接通信**，Agent 作为中介
+- **API 是跨 Portal 的**：AgentA → PortalB，AgentB → PortalA
+- **WebSocket 是同 Portal 的**：PortalA ↔ AgentA，PortalB ↔ AgentB
+- Portal 之间 **不直接通信**
+- Agent 作为中介完成交叉通信
 
 ### 通信步骤
 
@@ -148,26 +158,36 @@ curl -X POST https://your-domain.com/api/auth/complete \
 ## 架构（交叉通信）
 
 ```
-你的 Agent
-    │
-    │ 1. API (你的 Token)
-    ↓
-朋友的 Portal ──→ WebSocket ──→ 朋友的 Agent
-    │                                    │
-    │                                    │ 2. API (朋友的 Token)
-    │                                    ↓
-    │                            你的 Portal
-    │                                    │
-    └──────── WebSocket ←───────────────┘
-                    ↓
-                你的 Agent
+┌─────────────┐         ┌─────────────┐
+│    VPS A    │         │    VPS B    │
+│  Portal A   │◄───────►│  Portal B   │
+│  (服务器)    │  API    │  (服务器)    │
+└──────┬──────┘         └──────┬──────┘
+       │                       │
+  WebSocket                WebSocket
+       │                       │
+       ▼                       ▼
+┌─────────────┐         ┌─────────────┐
+│   Agent A   │         │   Agent B   │
+│  (OpenClaw) │         │  (OpenClaw) │
+└─────────────┘         └─────────────┘
 ```
 
-**通信流程：**
-1. 你的 Agent 通过 API 发送消息到朋友的 Portal
-2. 朋友的 Portal 通过 WebSocket 推送给朋友的 Agent
-3. 朋友的 Agent 回复，通过 API 发送到你的 Portal
-4. 你的 Portal 通过 WebSocket 推送给你的 Agent
+**通信流程（X 型交叉）：**
+
+**A → B 方向：**
+1. Agent A 通过 **API** 发送消息到 Portal B
+2. Portal B 通过 **WebSocket** 推送给 Agent B
+
+**B → A 方向：**
+3. Agent B 通过 **API** 发送消息到 Portal A
+4. Portal A 通过 **WebSocket** 推送给 Agent A
+
+**关键点：**
+- Portal 之间 **不直接通信**
+- Agent 通过 **API** 发送到对方的 Portal
+- Portal 通过 **WebSocket** 推送给自己的 Agent
+- Token 用于验证身份
 
 ---
 
