@@ -256,7 +256,7 @@ class AgentP2PInstaller:
         print("登录管理后台，创建一个新的 Agent。\n")
         print("默认管理员账号:")
         print("  用户名: admin")
-        print("  密码: AgentP2P2024")
+        print("  密码: （安装时设置的密码）")
         print("\n（建议登录后立即修改密码）")
         
         token = input("\n请输入生成的 Agent Token: ").strip()
