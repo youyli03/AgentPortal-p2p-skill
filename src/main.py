@@ -3,6 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import Optional, List
+from pathlib import Path
 import sqlite3
 import json
 import secrets
@@ -14,7 +15,8 @@ import os
 app = FastAPI(title="Agent P2P Portal")
 
 # 配置
-SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_urlsafe(32))
+# 固定 SECRET_KEY，确保所有 Portal 可以互相通信
+SECRET_KEY = os.getenv("SECRET_KEY", "agent-p2p-shared-secret-key-2024-change-in-production")
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_DAYS = 365
 DATABASE_PATH = os.getenv("DATABASE_PATH", "./data/portal.db")
