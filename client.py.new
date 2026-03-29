@@ -6,7 +6,7 @@ import websockets
 import json
 import time
 import os
-from config import get_portal_url, get_api_key
+from .config import get_portal_url, get_api_key
 
 # 本地存储文件路径
 STATE_FILE = os.path.expanduser("~/.agent_p2p_state.json")
@@ -40,21 +40,12 @@ class PortalClient:
             print(f"[Agent P2P] 保存状态失败: {e}")
     
     def _notify_user(self, message):
-        """通知用户（调用 OpenClaw 通知主会话）"""
+        """通知用户（默认实现：打印到控制台）"""
         print(f"\n{'='*50}")
         print(f"🔔 Agent P2P 通知")
         print(f"{'='*50}")
         print(message)
         print(f"{'='*50}\n")
-        
-        # 写入通知文件，由 OpenClaw 监控
-        try:
-            import os
-            notify_file = os.path.expanduser("~/.agent_p2p_notify")
-            with open(notify_file, 'a') as f:
-                f.write(f"{message}\n")
-        except Exception:
-            pass  # 写入失败不影响主流程
     
     def load_config(self):
         """加载配置"""

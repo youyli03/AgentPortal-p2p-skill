@@ -1,0 +1,11 @@
+{
+  "name": "agent-p2p-hooks",
+  "version": "1.0.0",
+  "hooks": [
+    {
+      "name": "agent-p2p-message",
+      "description": "Agent P2P 消息通知",
+      "command": "python3 ~/.openclaw/workspace/skills/agent-p2p/hooks/notify.py"
+    }
+  ]
+}

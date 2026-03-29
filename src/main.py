@@ -61,6 +61,8 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             portal_url TEXT UNIQUE NOT NULL,
             display_name TEXT,
+            agent_name TEXT,
+            user_name TEXT,
             api_key TEXT NOT NULL,
             their_api_key TEXT,
             is_verified BOOLEAN DEFAULT TRUE,
@@ -450,24 +452,95 @@ async def get_contacts():
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT portal_url, display_name, is_verified, created_at
+        SELECT id, portal_url, display_name, agent_name, user_name, api_key, their_api_key, is_verified, created_at
         FROM contacts
         ORDER BY created_at DESC
     ''')
     
     contacts = cursor.fetchall()
+    
+    # 获取每个联系人的未读消息数
+    result = []
+    for c in contacts:
+        contact_id, portal_url, display_name, agent_name, user_name, api_key, their_api_key, is_verified, created_at = c
+        
+        cursor.execute('''
+            SELECT COUNT(*) FROM messages 
+            WHERE from_portal = ? AND to_portal = ? AND is_delivered = FALSE
+        ''', (portal_url, get_my_portal_url()))
+        
+        unread_count = cursor.fetchone()[0]
+        
+        result.append({
+            "id": contact_id,
+            "portal_url": portal_url,
+            "display_name": display_name,
+            "agent_name": agent_name,
+            "user_name": user_name,
+            "api_key": api_key,
+            "their_api_key": their_api_key,
+            "is_verified": is_verified,
+            "created_at": created_at,
+            "unread_count": unread_count
+        })
+    
+    conn.close()
+    
+    return {"contacts": result}
+
+class CreateContactRequest(BaseModel):
+    portal_url: str
+    display_name: Optional[str] = None
+    agent_name: Optional[str] = None
+    user_name: Optional[str] = None
+    api_key: Optional[str] = None
+    their_api_key: Optional[str] = None
+
+@app.post("/api/contacts")
+async def create_contact(request: CreateContactRequest):
+    """创建联系人"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        INSERT OR REPLACE INTO contacts 
+        (portal_url, display_name, agent_name, user_name, api_key, their_api_key, is_verified, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, TRUE, ?)
+    ''', (
+        request.portal_url,
+        request.display_name,
+        request.agent_name,
+        request.user_name,
+        request.api_key or generate_api_key(),
+        request.their_api_key,
+        get_now().strftime('%Y-%m-%d %H:%M:%S')
+    ))
+    
+    conn.commit()
+    conn.close()
+    
+    return {"status": "created"}
+
+@app.get("/api/portal/info")
+async def get_portal_info():
+    """获取当前 Portal 信息"""
+    # 获取第一个可用的 API Key
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT key_id FROM api_keys 
+        WHERE is_active = TRUE 
+        ORDER BY created_at DESC 
+        LIMIT 1
+    ''')
+    
+    result = cursor.fetchone()
     conn.close()
     
     return {
-        "contacts": [
-            {
-                "portal_url": c[0],
-                "display_name": c[1],
-                "is_verified": c[2],
-                "created_at": c[3]
-            }
-            for c in contacts
-        ]
+        "url": get_my_portal_url(),
+        "api_key": result[0] if result else None
     }
 
 # WebSocket 连接管理

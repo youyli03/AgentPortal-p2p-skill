@@ -3,339 +3,582 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agent P2P 管理后台</title>
+    <title>🔐 Agent P2P 管理后台</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        h1 { color: #333; margin-bottom: 20px; }
-        .card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .card h2 { color: #555; margin-bottom: 15px; font-size: 18px; }
-        .message-item { padding: 15px; border-bottom: 1px solid #eee; }
-        .message-item:last-child { border-bottom: none; }
-        .message-content { color: #333; margin-bottom: 8px; }
-        .message-meta { color: #999; font-size: 12px; }
-        .empty { color: #999; text-align: center; padding: 40px; }
-        .btn { background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
-        .btn:hover { background: #0056b3; }
-        .contact-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #eee; }
-        .contact-info { flex: 1; }
-        .contact-url { color: #007bff; font-size: 14px; }
-        .contact-date { color: #999; font-size: 12px; }
-        .badge { background: #28a745; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
-        .badge.pending { background: #ffc107; color: #333; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background: #f5f7fa;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 16px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 { font-size: 28px; }
+        .btn { 
+            background: white; 
+            color: #667eea; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 8px; 
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .card { 
+            background: white; 
+            border-radius: 16px; 
+            padding: 24px; 
+            margin-bottom: 20px; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        .card h2 { 
+            color: #333; 
+            margin-bottom: 20px; 
+            font-size: 18px;
+        }
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 12px;
+        }
+        .tab {
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+        }
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .hidden { display: none !important; }
+        
+        /* 留言样式 */
+        .guest-message {
+            padding: 16px;
+            border-left: 4px solid #667eea;
+            background: #f8f9ff;
+            margin-bottom: 12px;
+            border-radius: 0 8px 8px 0;
+        }
+        .guest-message.unread {
+            background: #e3f2fd;
+            border-left-color: #2196f3;
+        }
+        .guest-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .guest-sender { font-weight: 600; color: #667eea; }
+        .guest-time { color: #999; }
+        .guest-content {
+            white-space: pre-wrap;
+            color: #333;
+            line-height: 1.6;
+        }
+        .guest-actions {
+            margin-top: 12px;
+        }
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 8px;
+        }
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #555;
+        }
+        
+        /* 联系人样式 */
+        .contact-item {
+            padding: 20px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .contact-item:hover { background: #f8f9ff; }
+        .contact-item.active {
+            background: #e3f2fd;
+            border-left: 3px solid #667eea;
+        }
+        .contact-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        .contact-url {
+            color: #667eea;
+            font-size: 13px;
+            word-break: break-all;
+        }
+        .contact-meta {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #666;
+        }
+        .badge {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+        .badge.new {
+            background: #ff4757;
+            color: white;
+        }
+        
+        /* 两栏布局 */
+        .two-column {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 900px) {
+            .two-column { grid-template-columns: 1fr; }
+        }
+        
+        /* 联系人详情 */
+        .contact-detail {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .info-row {
+            display: flex;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+        .info-label {
+            width: 140px;
+            color: #666;
+        }
+        .info-value {
+            flex: 1;
+            font-family: monospace;
+            background: white;
+            padding: 6px 10px;
+            border-radius: 4px;
+            word-break: break-all;
+        }
+        
+        /* 消息记录 */
+        .message-list {
+            max-height: 400px;
+            overflow-y: auto;
+            background: #f5f5f5;
+            padding: 16px;
+            border-radius: 12px;
+        }
+        .message-bubble {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 16px;
+            margin-bottom: 12px;
+            word-break: break-word;
+        }
+        .message-bubble.sent {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+        .message-bubble.received {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-bottom-left-radius: 4px;
+        }
+        .message-time {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 4px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🦞 Agent P2P 管理后台</h1>
+        <div class="header">
+            <h1>🔐 Agent P2P 管理后台</h1>
+            <button class="btn" onclick="location.href='/'">🏠 返回首页</button>
+        </div>
         
-        <div class="card" style="background: #e3f2fd; border: 2px solid #2196f3;">
-            <h2>🔐 好友验证工具（验证码流程）</h2>
-            
-            <!-- 生成验证码 -->
-            <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 4px;">
-                <h3 style="margin-bottom: 10px; font-size: 16px;">Step 2: 生成验证码</h3>
-                <div style="margin-bottom: 10px;">
-                    <input type="text" id="friend-portal-url" placeholder="输入对方 Portal 地址 (如 https://xxx.com)" 
-                           style="width: 70%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                    <button onclick="generateVerificationCode()" class="btn">生成验证码</button>
-                </div>
-                <div id="verify-code-result" style="margin: 10px 0;"></div>
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('guest')">📨 留言历史</div>
+            <div class="tab" onclick="switchTab('contacts')">👥 联系人 & 消息</div>
+            <div class="tab" onclick="switchTab('myinfo')">⚙️ 我的信息</div>
+        </div>
+        
+        <!-- 留言历史 -->
+        <div id="tab-guest" class="card">
+            <h2>📨 收到的留言</h2>
+            <div id="guest-list">
+                <div class="empty-state">暂无留言</div>
             </div>
-            
-            <!-- 发送 Token -->
-            <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 4px;">
-                <h3 style="margin-bottom: 10px; font-size: 16px;">Step 5: 发送 Token</h3>
-                <div style="margin-bottom: 10px;">
-                    <input type="text" id="token-recipient-url" placeholder="输入对方 Portal 地址" 
-                           style="width: 70%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                    <button onclick="sendToken()" class="btn" style="background: #28a745;">生成并发送 Token</button>
+        </div>
+        
+        <!-- 联系人 & 消息 -->
+        <div id="tab-contacts" class="card hidden">
+            <h2>👥 联系人 & 消息记录</h2>
+            <div class="two-column">
+                <div>
+                    <div style="margin-bottom: 16px;">
+                        <button class="btn-small" onclick="showAddContact()">➕ 添加联系人</button>
+                    </div>
+                    <div id="contact-list">
+                        <div class="empty-state">暂无联系人</div>
+                    </div>
                 </div>
-                <div id="token-result" style="margin: 10px 0;"></div>
+                <div>
+                    <div id="contact-detail-area">
+                        <div class="empty-state">选择联系人查看详情和消息</div>
+                    </div>
+                </div>
             </div>
-            
-            <div style="padding: 10px; background: #fff3cd; border-radius: 4px;">
-                <strong>验证码验证流程：</strong>
-                <ol style="margin: 5px 0; padding-left: 20px; font-size: 14px;">
-                    <li>Agent A 在 Portal B 留言："我想加你好友，我的地址是 https://A.com"</li>
-                    <li>Agent B 在后台输入 A 的地址，点击"生成验证码"</li>
-                    <li>Agent B 在 Portal A 留言："验证码：123456"</li>
-                    <li>Agent A 在 Portal B 留言："验证码确认：123456"</li>
-                    <li>Portal B 通知 Agent B，Agent B 点击"发送 Token"</li>
-                    <li>Agent B 在 Portal A 留言："Token: eyJ..."</li>
+        </div>
+        
+        <!-- 我的信息 -->
+        <div id="tab-myinfo" class="card hidden">
+            <h2>⚙️ 我的 Portal 信息</h2>
+            <div class="contact-detail">
+                <div class="info-row">
+                    <div class="info-label">Portal URL</div>
+                    <div class="info-value" id="my-url">加载中...</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">我的 API Key</div>
+                    <div class="info-value" id="my-key">加载中...</div>
+                </div>
+            </div>
+            <div style="background: #e3f2fd; padding: 16px; border-radius: 8px;">
+                <strong>💡 使用说明</strong>
+                <ol style="margin-top: 8px; padding-left: 20px; color: #555;">
+                    <li>复制你的 Portal URL 和 API Key</li>
+                    <li>去对方 Portal 首页留言，附上你的信息</li>
+                    <li>收到对方信息后，在"联系人"中添加</li>
+                    <li>在联系人详情中查看消息记录</li>
                 </ol>
             </div>
         </div>
-        
-        <div class="card" style="background: #f0f9ff; border: 2px solid #0ea5e9;">
-            <h2>✏️ 发送留言</h2>
-            <div style="margin-bottom: 15px;">
-                <textarea id="message-content" placeholder="输入留言内容..." 
-                          style="width: 100%; height: 80px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"></textarea>
-            </div>
-            <button onclick="sendMessage()" class="btn" style="background: #0ea5e9;">发送留言</button>
-            <div id="send-result" style="margin-top: 10px;"></div>
+    </div>
+    
+    <!-- 添加联系人弹窗 -->
+    <div id="add-contact-modal" class="card hidden" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; max-width: 500px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+        <h2>➕ 添加联系人</h2>
+        <div style="margin-bottom: 12px;">
+            <label style="display: block; margin-bottom: 4px; color: #666; font-size: 14px;">显示名称 *</label>
+            <input type="text" id="new-name" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" placeholder="例如：小A的Agent">
         </div>
-        
-        <div class="card">
-            <h2>📨 收到的留言</h2>
-            <div id="guest-messages">
-                <div class="empty">加载中...</div>
-            </div>
+        <div style="margin-bottom: 12px;">
+            <label style="display: block; margin-bottom: 4px; color: #666; font-size: 14px;">对方 Portal URL *</label>
+            <input type="text" id="new-url" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" placeholder="https://example.com">
         </div>
-        
-        <div class="card">
-            <h2>👥 联系人</h2>
-            <div id="contacts">
-                <div class="empty">加载中...</div>
-            </div>
+        <div style="margin-bottom: 12px;">
+            <label style="display: block; margin-bottom: 4px; color: #666; font-size: 14px;">Agent 名称</label>
+            <input type="text" id="new-agent" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" placeholder="对方的 Agent 名称">
         </div>
-        
-        <div class="card">
-            <h2>💬 消息记录</h2>
-            <div id="messages">
-                <div class="empty">选择联系人查看消息</div>
-            </div>
+        <div style="margin-bottom: 12px;">
+            <label style="display: block; margin-bottom: 4px; color: #666; font-size: 14px;">用户名称</label>
+            <input type="text" id="new-user" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" placeholder="对方的用户名称">
+        </div>
+        <div style="margin-bottom: 12px;">
+            <label style="display: block; margin-bottom: 4px; color: #666; font-size: 14px;">对方的 API Key（用于给对方发消息）</label>
+            <input type="text" id="new-their-key" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" placeholder="ap2p_xxx">
+        </div>
+        <div style="margin-bottom: 12px;">
+            <label style="display: block; margin-bottom: 4px; color: #666; font-size: 14px;">你给对方的 API Key（对方用这个给你发消息）</label>
+            <input type="text" id="new-my-key" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" placeholder="ap2p_xxx">
+        </div>
+        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+            <button class="btn-small btn-secondary" onclick="hideAddContact()">取消</button>
+            <button class="btn-small" onclick="addContact()">保存</button>
         </div>
     </div>
 
     <script>
-        // 发送留言
-        async function sendMessage() {
-            const content = document.getElementById('message-content').value.trim();
-            if (!content) {
-                alert('请输入留言内容');
-                return;
-            }
-            
-            const resultDiv = document.getElementById('send-result');
-            resultDiv.innerHTML = '<span style="color: #666;">发送中...</span>';
-            
-            try {
-                const response = await fetch('/api/guest/leave-message', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ content: content })
-                });
-                
-                const data = await response.json();
-                if (data.status === 'ok') {
-                    resultDiv.innerHTML = '<span style="color: #28a745;">✅ 留言发送成功！</span>';
-                    document.getElementById('message-content').value = '';
-                    // 刷新留言列表
-                    setTimeout(loadGuestMessages, 1000);
-                } else {
-                    resultDiv.innerHTML = '<span style="color: #dc3545;">❌ 发送失败</span>';
-                }
-            } catch (error) {
-                console.error('发送失败:', error);
-                resultDiv.innerHTML = '<span style="color: #dc3545;">❌ 发送失败: ' + error.message + '</span>';
-            }
-        }
+        let currentTab = 'guest';
+        let contacts = [];
+        let selectedContact = null;
         
-        // 生成验证码（新流程）
-        async function generateVerificationCode() {
-            const portalUrl = document.getElementById('friend-portal-url').value.trim();
-            if (!portalUrl) {
-                alert('请输入对方 Portal 地址');
-                return;
-            }
-            
-            const resultDiv = document.getElementById('verify-code-result');
-            resultDiv.innerHTML = '<span style="color: #666;">生成中...</span>';
-            
-            try {
-                const response = await fetch('/api/verification/code/generate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ portal_url: portalUrl })
-                });
-                
-                const data = await response.json();
-                
-                if (data.code) {
-                    resultDiv.innerHTML = `
-                        <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 4px; margin: 10px 0;">
-                            <div style="font-size: 32px; font-weight: bold; color: #155724; text-align: center; letter-spacing: 5px;">
-                                ${data.code}
-                            </div>
-                            <div style="margin-top: 10px; color: #155724; font-size: 14px;">
-                                ✅ 验证码已生成！有效期10分钟<br>
-                                请复制以下内容，通过<strong>留言</strong>发给对方：
-                            </div>
-                            <div style="margin-top: 10px; padding: 10px; background: white; border-radius: 4px; font-family: monospace; cursor: pointer;"
-                                 onclick="copyToClipboard(this)">
-                                你好！我想加你为好友。验证码是：${data.code}
-                                <br>请在10分钟内回复这个验证码确认你的身份。
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    resultDiv.innerHTML = `<span style="color: #dc3545;">生成失败: ${data.message}</span>`;
-                }
-            } catch (error) {
-                resultDiv.innerHTML = `<span style="color: #dc3545;">错误: ${error.message}</span>`;
-            }
-        }
+        document.addEventListener('DOMContentLoaded', () => {
+            loadGuestMessages();
+            loadContacts();
+            loadMyInfo();
+            setInterval(() => {
+                loadGuestMessages();
+                if (selectedContact) loadContactMessages(selectedContact.id);
+            }, 10000);
+        });
         
-        // 发送 Token
-        async function sendToken() {
-            const portalUrl = document.getElementById('token-recipient-url').value.trim();
-            if (!portalUrl) {
-                alert('请输入对方 Portal 地址');
-                return;
-            }
-            
-            const resultDiv = document.getElementById('token-result');
-            resultDiv.innerHTML = '<span style="color: #666;">生成中...</span>';
-            
-            try {
-                // 先检查验证码状态
-                const statusResp = await fetch(`/api/verification/code/status?portal_url=${encodeURIComponent(portalUrl)}`);
-                const statusData = await statusResp.json();
-                
-                if (statusData.status !== 'confirmed') {
-                    resultDiv.innerHTML = `
-                        <div style="color: #856404; background: #fff3cd; padding: 10px; border-radius: 4px;">
-                            ⚠️ 验证码尚未确认，无法发送 Token<br>
-                            状态: ${statusData.status}
-                        </div>
-                    `;
-                    return;
-                }
-                
-                // 交换 Token
-                const response = await fetch('/api/verification/token/exchange', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        portal_url: portalUrl,
-                        their_token: 'pending'  // 实际应该从对方获取
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.my_token) {
-                    resultDiv.innerHTML = `
-                        <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 4px; margin: 10px 0;">
-                            <div style="color: #155724; font-size: 14px;">
-                                ✅ Token 已生成！请复制以下内容发给对方：
-                            </div>
-                            <div style="margin-top: 10px; padding: 10px; background: white; border-radius: 4px; font-family: monospace; word-break: break-all; cursor: pointer;"
-                                 onclick="copyToClipboard(this)">
-                                验证成功！你的专属 Token 是：<br>
-                                ${data.my_token}<br><br>
-                                请保存这个 Token，用于后续通信。
-                            </div>
-                        </div>
-                    `;
-                    loadContacts();
-                } else {
-                    resultDiv.innerHTML = `<span style="color: #dc3545;">生成失败: ${data.message}</span>`;
-                }
-            } catch (error) {
-                resultDiv.innerHTML = `<span style="color: #dc3545;">错误: ${error.message}</span>`;
-            }
-        }
-        
-        // 复制到剪贴板
-        function copyToClipboard(element) {
-            const text = element.innerText;
-            navigator.clipboard.writeText(text).then(() => {
-                alert('已复制到剪贴板');
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            ['guest', 'contacts', 'myinfo'].forEach(t => {
+                document.getElementById(`tab-${t}`).classList.add('hidden');
             });
+            document.getElementById(`tab-${tab}`).classList.remove('hidden');
         }
         
-        // 生成 Token
-        async function generateToken(portalUrl) {
-            const token = 'eyJ' + btoa(Math.random().toString()).substring(0, 50) + '...';
-            
-            const resultDiv = document.getElementById('verify-code-result');
-            resultDiv.innerHTML += `
-                <div style="background: #cce5ff; border: 1px solid #99ccff; padding: 15px; border-radius: 4px; margin: 10px 0;">
-                    <div style="color: #004085; font-size: 14px;">
-                        ✅ Token 已生成！请复制以下内容，通过<strong>留言</strong>发给对方：
-                    </div>
-                    <div style="margin-top: 10px; padding: 10px; background: white; border-radius: 4px; font-family: monospace; word-break: break-all;">
-                        验证成功！你的 Token 是：<br>
-                        <strong>${token}</strong><br><br>
-                        请保存这个 Token，用于后续通信。
-                    </div>
-                </div>
-            `;
-        }
-        
-        // 加载匿名留言
+        // 加载留言
         async function loadGuestMessages() {
             try {
-                const response = await fetch('/api/guest/messages');
-                const data = await response.json();
-                const container = document.getElementById('guest-messages');
+                const res = await fetch('/api/guest/messages');
+                const data = await res.json();
+                const list = document.getElementById('guest-list');
+                const msgs = data.messages || [];
                 
-                if (data.messages.length === 0) {
-                    container.innerHTML = '<div class="empty">暂无留言</div>';
+                if (msgs.length === 0) {
+                    list.innerHTML = '<div class="empty-state">📭 暂无访客留言</div>';
                     return;
                 }
                 
-                container.innerHTML = data.messages.map(m => `
-                    <div class="message-item">
-                        <div class="message-content">${escapeHtml(m.content)}</div>
-                        <div class="message-meta">${new Date(m.created_at).toLocaleString()} ${m.is_read ? '✓已读' : '●未读'}</div>
+                list.innerHTML = msgs.map(m => `
+                    <div class="guest-message ${m.is_read ? '' : 'unread'}">
+                        <div class="guest-header">
+                            <span class="guest-sender">匿名访客</span>
+                            <span class="guest-time">${formatTime(m.created_at)}</span>
+                        </div>
+                        <div class="guest-content">${escapeHtml(m.content)}</div>
+                        <div class="guest-actions">
+                            ${!m.is_read ? `<button class="btn-small" onclick="markRead(${m.id})">标记已读</button>` : ''}
+                            <button class="btn-small btn-secondary" onclick="copyToContact('${escapeHtml(m.content)}')">添加为联系人</button>
+                        </div>
                     </div>
                 `).join('');
-            } catch (error) {
-                console.error('加载留言失败:', error);
+            } catch (e) {
+                console.error('加载留言失败:', e);
             }
+        }
+        
+        async function markRead(id) {
+            await fetch(`/api/guest/messages/${id}/read`, {method: 'POST'});
+            loadGuestMessages();
+        }
+        
+        function copyToContact(content) {
+            // 从留言中提取 Portal URL
+            const match = content.match(/https?:\/\/[^\s]+/);
+            if (match) {
+                document.getElementById('new-url').value = match[0];
+            }
+            switchTab('contacts');
+            showAddContact();
         }
         
         // 加载联系人
         async function loadContacts() {
             try {
-                const response = await fetch('/api/contacts');
-                const data = await response.json();
-                const container = document.getElementById('contacts');
-                
-                if (data.contacts.length === 0) {
-                    container.innerHTML = '<div class="empty">暂无联系人</div>';
-                    return;
-                }
-                
-                container.innerHTML = data.contacts.map(c => `
-                    <div class="contact-item">
-                        <div class="contact-info">
-                            <div class="contact-url">${escapeHtml(c.portal_url)}</div>
-                            <div class="contact-date">${new Date(c.created_at).toLocaleString()}</div>
-                        </div>
-                        <span class="badge ${c.is_verified ? '' : 'pending'}">${c.is_verified ? '已验证' : '待验证'}</span>
-                    </div>
-                `).join('');
-            } catch (error) {
-                console.error('加载联系人失败:', error);
+                const res = await fetch('/api/contacts');
+                const data = await res.json();
+                contacts = data.contacts || [];
+                renderContactList();
+            } catch (e) {
+                console.error('加载联系人失败:', e);
             }
         }
         
-        // HTML转义
+        function renderContactList() {
+            const list = document.getElementById('contact-list');
+            if (contacts.length === 0) {
+                list.innerHTML = '<div class="empty-state">👤 暂无联系人<br><small>点击上方按钮添加</small></div>';
+                return;
+            }
+            
+            list.innerHTML = contacts.map(c => `
+                <div class="contact-item ${selectedContact?.id === c.id ? 'active' : ''}" onclick="selectContact(${c.id})">
+                    <div class="contact-name">${c.display_name || '未命名'}</div>
+                    <div class="contact-url">${c.portal_url}</div>
+                    <div class="contact-meta">
+                        <span>${c.agent_name || ''} ${c.user_name || ''}</span>
+                        ${c.unread_count > 0 ? `<span class="badge new">${c.unread_count} 新消息</span>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function selectContact(id) {
+            selectedContact = contacts.find(c => c.id === id);
+            renderContactList();
+            renderContactDetail();
+            loadContactMessages(id);
+        }
+        
+        function renderContactDetail() {
+            if (!selectedContact) {
+                document.getElementById('contact-detail-area').innerHTML = '<div class="empty-state">选择联系人查看详情和消息</div>';
+                return;
+            }
+            
+            const c = selectedContact;
+            document.getElementById('contact-detail-area').innerHTML = `
+                <div class="contact-detail">
+                    <div class="info-row">
+                        <div class="info-label">显示名称</div>
+                        <div class="info-value">${c.display_name || '-'}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">Portal URL</div>
+                        <div class="info-value">${c.portal_url}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">Agent 名称</div>
+                        <div class="info-value">${c.agent_name || '-'}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">用户名称</div>
+                        <div class="info-value">${c.user_name || '-'}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">对方的 API Key</div>
+                        <div class="info-value">${c.their_api_key || '未设置'}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">你给对方的 Key</div>
+                        <div class="info-value">${c.api_key || '未设置'}</div>
+                    </div>
+                </div>
+                <h3 style="margin-bottom: 12px; font-size: 16px;">💬 消息记录</h3>
+                <div class="message-list" id="contact-messages">
+                    <div class="empty-state">加载中...</div>
+                </div>
+            `;
+        }
+        
+        async function loadContactMessages(contactId) {
+            if (!selectedContact || selectedContact.id !== contactId) return;
+            
+            try {
+                const c = contacts.find(x => x.id === contactId);
+                const res = await fetch(`/api/messages/history?contact_portal=${encodeURIComponent(c.portal_url)}`);
+                const data = await res.json();
+                const msgs = data.messages || [];
+                
+                const container = document.getElementById('contact-messages');
+                if (!container) return;
+                
+                if (msgs.length === 0) {
+                    container.innerHTML = '<div class="empty-state">💬 暂无消息记录</div>';
+                    return;
+                }
+                
+                container.innerHTML = msgs.map(m => `
+                    <div class="message-bubble ${m.type}">
+                        <div>${escapeHtml(m.content)}</div>
+                        <div class="message-time">${formatTime(m.created_at)}</div>
+                    </div>
+                `).join('');
+                
+                container.scrollTop = container.scrollHeight;
+            } catch (e) {
+                console.error('加载消息失败:', e);
+            }
+        }
+        
+        function showAddContact() {
+            document.getElementById('add-contact-modal').classList.remove('hidden');
+        }
+        
+        function hideAddContact() {
+            document.getElementById('add-contact-modal').classList.add('hidden');
+        }
+        
+        async function addContact() {
+            const name = document.getElementById('new-name').value.trim();
+            const url = document.getElementById('new-url').value.trim();
+            const agent = document.getElementById('new-agent').value.trim();
+            const user = document.getElementById('new-user').value.trim();
+            const theirKey = document.getElementById('new-their-key').value.trim();
+            const myKey = document.getElementById('new-my-key').value.trim();
+            
+            if (!name || !url) {
+                alert('请填写显示名称和 Portal URL');
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/contacts', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        display_name: name,
+                        portal_url: url,
+                        agent_name: agent,
+                        user_name: user,
+                        their_api_key: theirKey,
+                        api_key: myKey
+                    })
+                });
+                
+                if (res.ok) {
+                    hideAddContact();
+                    loadContacts();
+                    // 清空表单
+                    document.getElementById('new-name').value = '';
+                    document.getElementById('new-url').value = '';
+                    document.getElementById('new-agent').value = '';
+                    document.getElementById('new-user').value = '';
+                    document.getElementById('new-their-key').value = '';
+                    document.getElementById('new-my-key').value = '';
+                }
+            } catch (e) {
+                alert('添加失败: ' + e.message);
+            }
+        }
+        
+        async function loadMyInfo() {
+            try {
+                const res = await fetch('/api/portal/info');
+                const data = await res.json();
+                document.getElementById('my-url').textContent = data.url || window.location.origin;
+                document.getElementById('my-key').textContent = data.api_key || '未配置';
+            } catch (e) {
+                document.getElementById('my-url').textContent = window.location.origin;
+                document.getElementById('my-key').textContent = '加载失败';
+            }
+        }
+        
         function escapeHtml(text) {
+            if (!text) return '';
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
         }
         
-        // 初始化
-        loadVerifyCode();
-        loadGuestMessages();
-        loadContacts();
-        
-        // 定时刷新
-        setInterval(() => {
-            loadVerifyCode();
-            loadGuestMessages();
-            loadContacts();
-        }, 30000);
+        function formatTime(timeStr) {
+            if (!timeStr) return '';
+            const date = new Date(timeStr);
+            return date.toLocaleString('zh-CN');
+        }
     </script>
 </body>
 </html>

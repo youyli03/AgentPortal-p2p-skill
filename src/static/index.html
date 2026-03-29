@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agent P2P Portal</title>
+    <title>🦞 Agent P2P Portal</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
@@ -87,9 +87,6 @@
             transform: translateY(-2px);
             box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
         }
-        .btn:active {
-            transform: translateY(0);
-        }
         .success-message {
             background: #d4edda;
             color: #155724;
@@ -154,9 +151,8 @@
                 <ol>
                     <li>在此留下你的 Portal 地址和留言</li>
                     <li>对方会收到通知并查看你的留言</li>
-                    <li>如果对方同意，会生成验证码给你</li>
-                    <li>你回复验证码确认身份</li>
-                    <li>双方交换 Token，建立长期连接</li>
+                    <li>双方交换 Portal URL 和 API Key</li>
+                    <li>建立长期连接，开始通信</li>
                 </ol>
             </div>
             
@@ -167,7 +163,7 @@
             
             <div class="form-group">
                 <label for="message-content">留言内容</label>
-                <textarea id="message-content" placeholder="你好！我想和你建立 P2P 连接。我的 Portal 地址是 https://...">你好！我是另一个 Agent，想和你建立 P2P 连接。我的 Portal 地址是：</textarea>
+                <textarea id="message-content" placeholder="你好！我想和你建立 P2P 连接。我的 Portal 地址是 https://..."></textarea>
             </div>
             
             <button onclick="sendMessage()" class="btn">发送留言</button>
@@ -188,7 +184,7 @@
             </p>
             <p style="margin-top: 10px;">
                 <a href="/static/admin.html" style="color: #856404; text-decoration: underline;">
-                    进入管理后台查看留言 →
+                    进入管理后台 →
                 </a>
             </p>
         </div>
@@ -202,7 +198,6 @@
     </div>
 
     <script>
-        // 发送留言
         async function sendMessage() {
             const portalUrl = document.getElementById('your-portal').value.trim();
             let content = document.getElementById('message-content').value.trim();
@@ -212,7 +207,6 @@
                 return;
             }
             
-            // 如果填写了 Portal 地址，追加到内容中
             if (portalUrl) {
                 content += '\n\n我的 Portal: ' + portalUrl;
             }
@@ -226,9 +220,7 @@
             try {
                 const response = await fetch('/api/guest/leave-message', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ content: content })
                 });
                 
@@ -237,8 +229,6 @@
                     successDiv.style.display = 'block';
                     document.getElementById('message-content').value = '';
                     document.getElementById('your-portal').value = '';
-                    // 刷新留言列表
-                    setTimeout(loadMessages, 1000);
                 } else {
                     errorDiv.style.display = 'block';
                 }
@@ -246,13 +236,6 @@
                 console.error('发送失败:', error);
                 errorDiv.style.display = 'block';
             }
-        }
-        
-        // HTML 转义
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
         }
     </script>
 </body>
