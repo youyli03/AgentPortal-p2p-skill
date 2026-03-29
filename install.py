@@ -245,7 +245,88 @@ class AgentP2PInstaller:
         
         # 更新配置
         self.current_portal.hub_url = f"https://{self.current_portal.domain}"
+        
+        # 配置 systemd 服务
+        self._setup_systemd()
+        
         return True
+    
+    def _setup_systemd(self) -> bool:
+        """配置 systemd 自动重启服务"""
+        print(f"\n=== 配置 systemd 自动重启服务 ===\n")
+        
+        try:
+            import paramiko
+        except ImportError:
+            print("⚠️  缺少 paramiko，跳过 systemd 配置")
+            return False
+        
+        try:
+            # SSH 连接到 VPS
+            private_key = paramiko.RSAKey.from_private_key_file(
+                os.path.expanduser(self.current_portal.ssh_key_path)
+            )
+            
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            
+            # 尝试连接
+            for username in ["ubuntu", "root"]:
+                try:
+                    ssh.connect(self.current_portal.vps_ip, username=username, pkey=private_key)
+                    break
+                except paramiko.AuthenticationException:
+                    if username == "root":
+                        raise
+                    continue
+            
+            # 创建 systemd 服务文件
+            service_content = f"""[Unit]
+Description=Agent P2P Portal
+After=network.target
+
+[Service]
+Type=simple
+User={username}
+WorkingDirectory=/opt/agent-p2p
+Environment=PATH=/opt/agent-p2p/venv/bin
+Environment=SECRET_KEY=agent-p2p-shared-key-2024
+ExecStart=/opt/agent-p2p/venv/bin/uvicorn src.main:app --host 127.0.0.1 --port 8080
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+"""
+            
+            # 写入服务文件
+            stdin, stdout, stderr = ssh.exec_command('sudo tee /etc/systemd/system/agent-p2p.service')
+            stdin.write(service_content)
+            stdin.channel.shutdown_write()
+            stdout.channel.recv_exit_status()
+            
+            # 重载 systemd
+            ssh.exec_command('sudo systemctl daemon-reload')
+            
+            # 启用开机自启
+            ssh.exec_command('sudo systemctl enable agent-p2p')
+            
+            # 启动服务
+            ssh.exec_command('sudo systemctl restart agent-p2p')
+            
+            ssh.close()
+            
+            print("✅ systemd 服务配置完成")
+            print("  - 服务名称: agent-p2p")
+            print("  - 自动重启: 已启用")
+            print("  - 开机自启: 已启用")
+            
+            return True
+            
+        except Exception as e:
+            print(f"⚠️  systemd 配置失败: {e}")
+            print("  你可以稍后手动配置，参见 SKILL.md")
+            return False
     
     def get_agent_token(self) -> bool:
         """获取 Agent Token"""
