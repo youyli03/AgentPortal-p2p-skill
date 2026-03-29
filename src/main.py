@@ -189,9 +189,9 @@ async def leave_message(request: GuestMessageRequest, request_obj: Request):
     cursor = conn.cursor()
     
     cursor.execute('''
-        INSERT INTO guest_messages (content, ip_address, user_agent)
-        VALUES (?, ?, ?)
-    ''', (request.content, request_obj.client.host, request_obj.headers.get("user-agent")))
+        INSERT INTO guest_messages (content, ip_address, user_agent, created_at)
+        VALUES (?, ?, ?, ?)
+    ''', (request.content, request_obj.client.host, request_obj.headers.get("user-agent"), get_now().strftime('%Y-%m-%d %H:%M:%S')))
     
     message_id = cursor.lastrowid
     conn.commit()
@@ -618,9 +618,9 @@ async def send_message(request: SendMessageRequest, background_tasks: Background
     
     # 保存消息
     cursor.execute('''
-        INSERT INTO messages (from_portal, to_portal, content, message_type)
-        VALUES (?, ?, ?, ?)
-    ''', (portal_url, request.to_portal, request.content, request.message_type))
+        INSERT INTO messages (from_portal, to_portal, content, message_type, created_at)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (portal_url, request.to_portal, request.content, request.message_type, get_now().strftime('%Y-%m-%d %H:%M:%S')))
     
     message_id = cursor.lastrowid
     conn.commit()
