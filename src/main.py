@@ -78,7 +78,7 @@ def init_db():
             content TEXT NOT NULL,
             message_type TEXT DEFAULT 'text',
             file_url TEXT,
-            is_synced BOOLEAN DEFAULT FALSE,
+            is_delivered BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -355,11 +355,20 @@ async def get_message_history(
     }
 
 async def push_message(to_portal: str, message: dict):
-    """异步推送消息到 WebSocket"""
+    """异步推送消息到 WebSocket，成功则标记为已送达"""
     try:
         await manager.send_message(to_portal, message)
+        # 推送成功，标记为已送达
+        message_id = message.get("id")
+        if message_id:
+            conn = sqlite3.connect(DATABASE_PATH)
+            cursor = conn.cursor()
+            cursor.execute('UPDATE messages SET is_delivered = TRUE WHERE id = ?', (message_id,))
+            conn.commit()
+            conn.close()
     except Exception as e:
         print(f"WebSocket 推送失败: {e}")
+        # 推送失败，保持 is_delivered = FALSE，等 Agent 上线后 sync
 
 @app.post("/api/message/send")
 async def send_message(request: SendMessageRequest, background_tasks: BackgroundTasks):
@@ -533,27 +542,19 @@ async def websocket_endpoint(websocket: WebSocket, api_key: str):
                 pass
             
             elif data.get("type") == "sync_request":
-                # 返回未同步的消息
+                # 返回未送达的消息（离线期间的消息）
                 portal_url = verify_api_key(api_key)
                 if portal_url:
                     conn = sqlite3.connect(DATABASE_PATH)
                     cursor = conn.cursor()
                     
-                    last_sync = data.get("last_sync")
-                    if last_sync:
-                        cursor.execute('''
-                            SELECT from_portal, content, message_type, created_at
-                            FROM messages 
-                            WHERE to_portal = ? AND created_at > ?
-                            ORDER BY created_at ASC
-                        ''', (portal_url, last_sync))
-                    else:
-                        cursor.execute('''
-                            SELECT from_portal, content, message_type, created_at
-                            FROM messages 
-                            WHERE to_portal = ?
-                            ORDER BY created_at ASC
-                        ''', (portal_url,))
+                    # 只查询 is_delivered = FALSE 的消息
+                    cursor.execute('''
+                        SELECT id, from_portal, content, message_type, created_at
+                        FROM messages 
+                        WHERE to_portal = ? AND is_delivered = FALSE
+                        ORDER BY created_at ASC
+                    ''', (portal_url,))
                     
                     messages = cursor.fetchall()
                     conn.close()
@@ -561,9 +562,32 @@ async def websocket_endpoint(websocket: WebSocket, api_key: str):
                     await websocket.send_json({
                         "type": "sync_response",
                         "messages": [
-                            {"from": m[0], "content": m[1], "type": m[2], "created_at": m[3]}
+                            {"id": m[0], "from": m[1], "content": m[2], "type": m[3], "created_at": m[4]}
                             for m in messages
                         ]
+                    })
+            
+            elif data.get("type") == "ack":
+                # 确认收到消息，更新 is_delivered
+                message_ids = data.get("message_ids", [])
+                if message_ids:
+                    conn = sqlite3.connect(DATABASE_PATH)
+                    cursor = conn.cursor()
+                    
+                    # 批量更新 is_delivered
+                    placeholders = ','.join('?' * len(message_ids))
+                    cursor.execute(f''
+                        UPDATE messages 
+                        SET is_delivered = TRUE 
+                        WHERE id IN ({placeholders})
+                    '', message_ids)
+                    
+                    conn.commit()
+                    conn.close()
+                    
+                    await websocket.send_json({
+                        "type": "ack_confirm",
+                        "message_ids": message_ids
                     })
     
     except WebSocketDisconnect:
