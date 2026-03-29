@@ -8,6 +8,7 @@ Agent P2P Portal 自动化部署脚本
 3. 部署 Portal 代码
 4. 配置 Nginx + SSL
 5. 启动服务
+6. 生成默认 API Key
 
 避坑清单（来自实际部署经验）：
 - Ubuntu 22.04 默认 Python 3.10，需要安装 python3-venv
@@ -23,6 +24,7 @@ import sys
 import json
 import time
 import argparse
+import secrets
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -78,6 +80,9 @@ class PortalDeployer:
         
         # 本地 skill 路径
         self.local_skill_path = Path(__file__).parent.parent.absolute()
+        
+        # 生成的 API Key
+        self.api_key: Optional[str] = None
         
     def connect(self) -> bool:
         """建立 SSH 连接"""
@@ -328,6 +333,68 @@ class PortalDeployer:
         log_success("SSL 证书配置完成")
         return True
     
+    def generate_api_key(self) -> bool:
+        """生成默认 API Key"""
+        log_info("生成默认 API Key...")
+        
+        # 生成 API Key
+        self.api_key = "ap2p_" + secrets.token_urlsafe(32)
+        portal_url = f"https://{self.domain}"
+        
+        # 创建数据目录
+        self.run_command(f"mkdir -p {self.remote_path}/data", sudo=True)
+        
+        # 使用 Python 在远程服务器上初始化数据库并插入 API Key
+        init_script = f'''
+import sqlite3
+import os
+
+db_path = "{self.remote_path}/data/portal.db"
+os.makedirs(os.path.dirname(db_path), exist_ok=True)
+
+conn = sqlite3.connect(db_path)
+cursor = conn.cursor()
+
+# 创建 api_keys 表
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS api_keys (
+        key_id TEXT PRIMARY KEY,
+        portal_url TEXT NOT NULL,
+        agent_name TEXT,
+        user_name TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        is_active BOOLEAN DEFAULT TRUE
+    )
+""")
+
+# 插入默认 API Key
+cursor.execute("""
+    INSERT OR IGNORE INTO api_keys (key_id, portal_url, agent_name, user_name, created_at, is_active)
+    VALUES (?, ?, ?, ?, datetime('now'), TRUE)
+""", ("{self.api_key}", "{portal_url}", "default_agent", "admin"))
+
+conn.commit()
+conn.close()
+print("API Key created successfully")
+'''
+        
+        # 写入并执行初始化脚本
+        init_script_path = f"{self.remote_path}/init_api_key.py"
+        with open("/tmp/init_api_key.py", 'w') as f:
+            f.write(init_script)
+        self.sftp.put("/tmp/init_api_key.py", init_script_path)
+        
+        exit_code, out, err = self.run_command(
+            f"cd {self.remote_path} && python3 init_api_key.py"
+        )
+        
+        if exit_code != 0:
+            log_error(f"生成 API Key 失败: {err}")
+            return False
+        
+        log_success("默认 API Key 已生成")
+        return True
+    
     def create_systemd_service(self) -> bool:
         """创建 systemd 服务"""
         log_info("创建 systemd 服务...")
@@ -341,6 +408,7 @@ Type=simple
 User=root
 WorkingDirectory={self.remote_path}
 Environment=PATH={self.venv_path}/bin
+Environment=PORTAL_URL=https://{self.domain}
 ExecStart={self.venv_path}/bin/uvicorn src.main:app --host 127.0.0.1 --port 8080
 Restart=always
 RestartSec=5
@@ -399,7 +467,7 @@ WantedBy=multi-user.target
         
         # 测试 HTTP 访问
         exit_code, out, _ = self.run_command(
-            f"curl -s -o /dev/null -w '%{{http_code}}' http://localhost:8080/health || echo '000'"
+            f"curl -s -o /dev/null -w '%{{http_code}}' http://localhost:8080/ || echo '000'"
         )
         if out.strip() == "200":
             log_success("本地服务响应正常")
@@ -425,6 +493,7 @@ WantedBy=multi-user.target
             ("安装 Python 包", self.install_python_deps),
             ("配置 Nginx", self.configure_nginx),
             ("配置 SSL", self.setup_ssl),
+            ("生成 API Key", self.generate_api_key),
             ("创建服务", self.create_systemd_service),
             ("验证部署", self.verify_deployment),
         ]
@@ -444,6 +513,9 @@ WantedBy=multi-user.target
         print(f"\n访问地址:")
         print(f"  Portal: https://{self.domain}")
         print(f"  管理后台: https://{self.domain}/static/admin.html")
+        print(f"\nAPI Key:")
+        print(f"  {self.api_key}")
+        print(f"\n⚠️  请妥善保存此 API Key，它不会再次显示！")
         print(f"\n管理命令:")
         print(f"  查看状态: systemctl status agent-p2p")
         print(f"  查看日志: journalctl -u agent-p2p -f")

@@ -10,17 +10,11 @@ import secrets
 import hashlib
 from datetime import datetime, timedelta
 import pytz
-from jose import JWTError, jwt
 import os
 
 app = FastAPI(title="Agent P2P Portal")
 
 # 配置
-# 固定 SECRET_KEY，确保所有 Portal 可以互相通信
-# 注意：此密钥用于生产环境，所有 Agent P2P Portal 必须使用相同密钥
-SECRET_KEY = "agent-p2p-shared-key-2024"
-ALGORITHM = "HS256"
-TOKEN_EXPIRE_DAYS = 365
 DATABASE_PATH = os.getenv("DATABASE_PATH", "./data/portal.db")
 
 # 时区设置
@@ -67,8 +61,8 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             portal_url TEXT UNIQUE NOT NULL,
             display_name TEXT,
-            token TEXT NOT NULL,
-            their_token TEXT,
+            api_key TEXT NOT NULL,
+            their_api_key TEXT,
             is_verified BOOLEAN DEFAULT TRUE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             expires_at TIMESTAMP
@@ -89,27 +83,15 @@ def init_db():
         )
     ''')
     
-    # 验证挑战表
+    # API Keys 表
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS challenges (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+        CREATE TABLE IF NOT EXISTS api_keys (
+            key_id TEXT PRIMARY KEY,
             portal_url TEXT NOT NULL,
-            challenge_code TEXT NOT NULL,
-            expires_at TIMESTAMP NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    # 好友请求验证码表（简化验证流程）
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS verification_codes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            portal_url TEXT NOT NULL,
-            code TEXT NOT NULL,
-            status TEXT DEFAULT 'pending',
+            agent_name TEXT,
+            user_name TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            expires_at TIMESTAMP NOT NULL,
-            verified_at TIMESTAMP
+            is_active BOOLEAN DEFAULT TRUE
         )
     ''')
     
@@ -127,58 +109,46 @@ class MessageHistoryRequest(BaseModel):
     limit: int = 50
     offset: int = 0
 
-class AuthInitiateRequest(BaseModel):
-    portal_url: str
-
-class AuthCompleteRequest(BaseModel):
-    portal_url: str
-    challenge_response: str
-    their_token: Optional[str] = None
-
 class SendMessageRequest(BaseModel):
-    to_portal: str
-    token: str
+    api_key: str                    # 发送方 API Key（Portal B 给我的）
+    to_portal: str                  # 接收方 Portal URL
     content: str
     message_type: str = "text"
 
-class TokenData(BaseModel):
-    portal_url: Optional[str] = None
-
-# ========== 简化验证码验证流程 ==========
-
-class VerificationCodeRequest(BaseModel):
-    """生成验证码请求"""
+class ApiKeyCreateRequest(BaseModel):
     portal_url: str
+    agent_name: Optional[str] = None
+    user_name: Optional[str] = None
 
-class VerificationCodeConfirm(BaseModel):
-    """确认验证码请求"""
+class ApiKeyExchangeRequest(BaseModel):
     portal_url: str
-    code: str
-
-class VerificationTokenExchange(BaseModel):
-    """交换 Token"""
-    portal_url: str
-    their_token: str
-
-def generate_verification_code() -> str:
-    """生成6位数字验证码"""
-    return ''.join([str(secrets.randbelow(10)) for _ in range(6)])
+    their_api_key: str
 
 # 工具函数
-def create_token(portal_url: str) -> str:
-    expire = get_now() + timedelta(days=TOKEN_EXPIRE_DAYS)
-    to_encode = {"sub": portal_url, "exp": expire}
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+def generate_api_key() -> str:
+    """生成随机 API Key"""
+    return "ap2p_" + secrets.token_urlsafe(32)
 
-def verify_token(token: str) -> Optional[str]:
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload.get("sub")
-    except JWTError:
-        return None
+def verify_api_key(api_key: str) -> Optional[str]:
+    """验证 API Key，返回对应的 portal_url"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT portal_url FROM api_keys 
+        WHERE key_id = ? AND is_active = TRUE
+    ''', (api_key,))
+    
+    result = cursor.fetchone()
+    conn.close()
+    
+    if result:
+        return result[0]
+    return None
 
-def generate_challenge() -> str:
-    return secrets.token_hex(16)
+def get_my_portal_url() -> str:
+    """获取当前 Portal 的 URL（从环境变量或配置）"""
+    return os.getenv("PORTAL_URL", "")
 
 # API 路由
 
@@ -221,324 +191,107 @@ async def get_guest_messages():
         ]
     }
 
-@app.post("/api/auth/initiate")
-async def auth_initiate(request: AuthInitiateRequest):
-    """发起身份验证"""
-    challenge = generate_challenge()
-    # 延长挑战有效期到 24 小时，给 Agent 足够时间响应
-    expires_at = get_now() + timedelta(hours=24)
-    
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    
-    # 保存挑战码
-    cursor.execute('''
-        INSERT INTO challenges (portal_url, challenge_code, expires_at)
-        VALUES (?, ?, ?)
-    ''', (request.portal_url, challenge, expires_at))
-    
-    conn.commit()
-    conn.close()
-    
-    # TODO: 发送挑战码到对方门户
-    # 这里需要异步发送，暂时返回挑战码
-    
-    return {
-        "challenge": challenge,
-        "expires_at": expires_at.isoformat()
-    }
+# ========== API Key 管理接口 ==========
 
-@app.post("/api/auth/complete")
-async def auth_complete(request: AuthCompleteRequest):
-    """完成身份验证"""
+@app.post("/api/key/create")
+async def create_api_key(request: ApiKeyCreateRequest):
+    """创建新的 API Key"""
+    api_key = generate_api_key()
+    
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
-    # 验证挑战码
     cursor.execute('''
-        SELECT challenge_code FROM challenges 
-        WHERE portal_url = ? AND expires_at > ?
-        ORDER BY created_at DESC LIMIT 1
-    ''', (request.portal_url, get_now()))
-    
-    result = cursor.fetchone()
-    if not result or result[0] != request.challenge_response:
-        conn.close()
-        raise HTTPException(status_code=400, detail="Invalid challenge")
-    
-    # 生成 Token
-    token = create_token(request.portal_url)
-    expires_at = get_now() + timedelta(days=TOKEN_EXPIRE_DAYS)
-    
-    # 保存联系人
-    cursor.execute('''
-        INSERT OR REPLACE INTO contacts 
-        (portal_url, token, their_token, expires_at)
-        VALUES (?, ?, ?, ?)
-    ''', (request.portal_url, token, request.their_token, expires_at))
+        INSERT INTO api_keys (key_id, portal_url, agent_name, user_name, created_at, is_active)
+        VALUES (?, ?, ?, ?, ?, TRUE)
+    ''', (api_key, request.portal_url, request.agent_name, request.user_name, get_now().strftime('%Y-%m-%d %H:%M:%S')))
     
     conn.commit()
     conn.close()
     
     return {
-        "status": "verified",
-        "your_token": token,
-        "expires_at": expires_at.isoformat()
-    }
-
-@app.get("/api/auth/pending")
-async def get_pending_challenges(portal_url: str):
-    """查询待处理的验证请求（用于 Agent 自动响应）"""
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    
-    # 查找发给这个 Portal 的未过期挑战
-    cursor.execute('''
-        SELECT portal_url, challenge_code, expires_at, created_at
-        FROM challenges
-        WHERE portal_url = ? AND expires_at > ?
-        ORDER BY created_at DESC
-        LIMIT 1
-    ''', (portal_url, get_now()))
-    
-    result = cursor.fetchone()
-    conn.close()
-    
-    if result:
-        return {
-            "has_pending": True,
-            "from_portal": result[0],
-            "challenge": result[1],
-            "expires_at": result[2],
-            "created_at": result[3]
-        }
-    else:
-        return {"has_pending": False}
-
-# ========== 简化验证码验证流程（替代挑战响应）==========
-
-@app.post("/api/verification/code/generate")
-async def generate_code(request: VerificationCodeRequest):
-    """
-    生成验证码给指定 Portal
-    Agent B 收到好友请求后，生成验证码准备发给 Agent A
-    """
-    code = generate_verification_code()
-    expires_at = get_now() + timedelta(minutes=10)
-    
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    
-    # 保存验证码
-    cursor.execute('''
-        INSERT OR REPLACE INTO verification_codes (portal_url, code, status, expires_at)
-        VALUES (?, ?, 'pending', ?)
-    ''', (request.portal_url, code, expires_at))
-    
-    conn.commit()
-    conn.close()
-    
-    return {
-        "code": code,
-        "expires_at": expires_at.isoformat(),
-        "message": f"验证码已生成：{code}，请通过留言发送给对方"
-    }
-
-@app.post("/api/verification/code/confirm")
-async def confirm_code(request: VerificationCodeConfirm):
-    """
-    确认验证码
-    Agent A 收到验证码后，向 Portal B 确认
-    """
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    
-    # 查找验证码
-    cursor.execute('''
-        SELECT code, status FROM verification_codes 
-        WHERE portal_url = ? AND expires_at > ?
-    ''', (request.portal_url, get_now()))
-    
-    result = cursor.fetchone()
-    if not result:
-        conn.close()
-        raise HTTPException(status_code=404, detail="验证码不存在或已过期")
-    
-    if result[0] != request.code:
-        conn.close()
-        raise HTTPException(status_code=400, detail="验证码错误")
-    
-    # 更新状态为已确认
-    cursor.execute('''
-        UPDATE verification_codes 
-        SET status = 'confirmed', verified_at = CURRENT_TIMESTAMP
-        WHERE portal_url = ?
-    ''', (request.portal_url,))
-    
-    conn.commit()
-    conn.close()
-    
-    # 通过 WebSocket 通知 Portal B 的主人
-    await manager.send_message(request.portal_url, {
-        "type": "code_confirmed",
+        "status": "created",
+        "api_key": api_key,
         "portal_url": request.portal_url,
-        "message": "对方已确认验证码，请发送 Token"
-    })
-    
-    return {
-        "status": "confirmed",
-        "message": "验证码正确，等待对方发送 Token"
+        "message": "请妥善保存此 API Key，它不会再次显示"
     }
 
-@app.post("/api/verification/token/exchange")
-async def exchange_token_verified(request: VerificationTokenExchange):
-    """
-    验证码确认后，交换 Token
-    Agent B 生成 Token 给 Agent A
-    """
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    
-    # 检查验证码是否已确认
-    cursor.execute('''
-        SELECT status FROM verification_codes 
-        WHERE portal_url = ?
-    ''', (request.portal_url,))
-    
-    result = cursor.fetchone()
-    if not result or result[0] != 'confirmed':
-        conn.close()
-        raise HTTPException(status_code=400, detail="验证码尚未确认")
-    
-    # 生成 Token
-    my_token = create_token(request.portal_url)
-    expires_at = get_now() + timedelta(days=TOKEN_EXPIRE_DAYS)
-    
-    # 保存联系人关系
-    cursor.execute('''
-        INSERT OR REPLACE INTO contacts 
-        (portal_url, token, their_token, expires_at, is_verified)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (request.portal_url, my_token, request.their_token, expires_at, True))
-    
-    # 清理验证码
-    cursor.execute('DELETE FROM verification_codes WHERE portal_url = ?', (request.portal_url,))
-    
-    conn.commit()
-    conn.close()
-    
-    return {
-        "status": "verified",
-        "my_token": my_token,
-        "expires_at": expires_at.isoformat(),
-        "message": "验证完成，Token 已生成"
-    }
-
-@app.get("/api/verification/code/status")
-async def get_code_status(portal_url: str):
-    """查询验证码状态"""
+@app.get("/api/key/list")
+async def list_api_keys():
+    """列出所有 API Keys"""
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT code, status, expires_at FROM verification_codes 
-        WHERE portal_url = ?
-    ''', (portal_url,))
-    
-    result = cursor.fetchone()
-    conn.close()
-    
-    if not result:
-        return {"status": "none"}
-    
-    return {
-        "code": result[0] if result[1] == 'pending' else None,
-        "status": result[1],
-        "expires_at": result[2]
-    }
-
-# ========== 原验证流程（完全通过留言）==========
-
-class TokenExchangeRequest(BaseModel):
-    portal_url: str
-    their_token: str
-
-@app.post("/api/friend/exchange-token")
-async def exchange_token(request: TokenExchangeRequest):
-    """
-    通过留言完成 Token 交换（简化流程）
-    
-    流程：
-    1. Agent A 在 Portal B 留言请求好友
-    2. Agent B 在 Portal A 留言发送验证码
-    3. Agent A 在 Portal B 留言回复验证码
-    4. Agent B 确认后，在 Portal A 留言发送 Token
-    5. Agent A 收到 Token，保存到本地
-    
-    这个 API 用于第 4 步：Agent B 把 Token 发给 Portal A
-    Portal A 保存后，Agent A 可以通过留言获取
-    """
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    
-    # 生成 Token 给对方
-    my_token = create_token(request.portal_url)
-    expires_at = get_now() + timedelta(days=TOKEN_EXPIRE_DAYS)
-    
-    # 保存联系人关系
-    cursor.execute('''
-        INSERT OR REPLACE INTO contacts (portal_url, token, their_token, expires_at, is_verified)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (request.portal_url, my_token, request.their_token, expires_at, True))
-    
-    conn.commit()
-    conn.close()
-    
-    return {
-        "status": "success",
-        "message": "Token 交换成功",
-        "your_token": my_token,
-        "expires_at": expires_at.isoformat()
-    }
-
-@app.get("/api/friend/pending-tokens")
-async def get_pending_tokens(portal_url: str):
-    """
-    查询待接收的 Token（用于 Agent 自动检测）
-    
-    Agent 轮询这个 API，检查是否有其他 Agent 通过留言发来的 Token
-    """
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    
-    # 查找最新的包含 Token 的留言
-    cursor.execute('''
-        SELECT content, created_at
-        FROM guest_messages
-        WHERE content LIKE '%Token:%' OR content LIKE '%token:%'
+        SELECT key_id, portal_url, agent_name, user_name, created_at, is_active
+        FROM api_keys
         ORDER BY created_at DESC
-        LIMIT 5
     ''')
     
-    results = cursor.fetchall()
+    keys = cursor.fetchall()
     conn.close()
     
-    tokens = []
-    for row in results:
-        content = row[0]
-        # 尝试提取 Token
-        import re
-        token_match = re.search(r'[Tt]oken[:\s]+([A-Za-z0-9_\-\.]+)', content)
-        if token_match:
-            tokens.append({
-                "token": token_match.group(1),
-                "full_message": content,
-                "created_at": row[1]
-            })
+    return {
+        "api_keys": [
+            {
+                "key_id": k[0][:20] + "...",  # 只显示前20个字符
+                "portal_url": k[1],
+                "agent_name": k[2],
+                "user_name": k[3],
+                "created_at": k[4],
+                "is_active": k[5]
+            }
+            for k in keys
+        ],
+        "total": len(keys)
+    }
+
+@app.post("/api/key/revoke")
+async def revoke_api_key(api_key: str):
+    """撤销 API Key"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        UPDATE api_keys SET is_active = FALSE WHERE key_id = ?
+    ''', (api_key,))
+    
+    conn.commit()
+    conn.close()
+    
+    return {"status": "revoked"}
+
+@app.post("/api/key/exchange")
+async def exchange_api_key(request: ApiKeyExchangeRequest):
+    """交换 API Key（建立好友关系）"""
+    my_portal = get_my_portal_url()
+    
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    # 生成我的 API Key 给对方
+    my_api_key = generate_api_key()
+    
+    # 保存 API Key 到数据库
+    cursor.execute('''
+        INSERT INTO api_keys (key_id, portal_url, agent_name, created_at, is_active)
+        VALUES (?, ?, ?, ?, TRUE)
+    ''', (my_api_key, request.portal_url, "friend", get_now().strftime('%Y-%m-%d %H:%M:%S')))
+    
+    # 保存联系人关系
+    cursor.execute('''
+        INSERT OR REPLACE INTO contacts 
+        (portal_url, api_key, their_api_key, is_verified, created_at)
+        VALUES (?, ?, ?, TRUE, ?)
+    ''', (request.portal_url, my_api_key, request.their_api_key, get_now().strftime('%Y-%m-%d %H:%M:%S')))
+    
+    conn.commit()
+    conn.close()
     
     return {
-        "has_tokens": len(tokens) > 0,
-        "tokens": tokens
+        "status": "exchanged",
+        "api_key": my_api_key,
+        "message": "API Key 交换成功"
     }
 
 # ========== 历史消息 API ==========
@@ -548,12 +301,15 @@ async def get_message_history(
     contact_portal: str,
     limit: int = 50,
     offset: int = 0,
-    my_portal: str = "https://agentportalp2p.com"
+    my_portal: str = ""
 ):
     """
     获取与指定联系人的消息历史
     按时间倒序排列，支持分页
     """
+    if not my_portal:
+        my_portal = get_my_portal_url()
+    
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
@@ -608,28 +364,29 @@ async def push_message(to_portal: str, message: dict):
 @app.post("/api/message/send")
 async def send_message(request: SendMessageRequest, background_tasks: BackgroundTasks):
     """发送消息"""
-    # 验证 Token
-    portal_url = verify_token(request.token)
-    if not portal_url:
-        raise HTTPException(status_code=401, detail="Invalid token")
+    # 验证 API Key，获取发送方 Portal URL
+    from_portal = verify_api_key(request.api_key)
+    if not from_portal:
+        raise HTTPException(status_code=401, detail="Invalid API Key")
     
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
+    
+    # 目标 Portal 直接从请求获取
+    to_portal = request.to_portal
     
     # 保存消息
     cursor.execute('''
         INSERT INTO messages (from_portal, to_portal, content, message_type, created_at)
         VALUES (?, ?, ?, ?, ?)
-    ''', (portal_url, request.to_portal, request.content, request.message_type, get_now().strftime('%Y-%m-%d %H:%M:%S')))
+    ''', (from_portal, to_portal, request.content, request.message_type, get_now().strftime('%Y-%m-%d %H:%M:%S')))
     
     message_id = cursor.lastrowid
     conn.commit()
     conn.close()
     
-
-    
     # 后台推送消息
-    background_tasks.add_task(push_message, request.to_portal, {
+    background_tasks.add_task(push_message, to_portal, {
         "type": "message",
         "id": message_id,
         "from": portal_url,
@@ -709,22 +466,22 @@ class ConnectionManager:
     def __init__(self):
         self.active_connections: dict = {}
     
-    async def connect(self, websocket: WebSocket, token: str):
+    async def connect(self, websocket: WebSocket, api_key: str):
         import logging
         logger = logging.getLogger(__name__)
-        logger.info(f"[WS] Connection attempt with token: {token[:30]}...")
+        logger.info(f"[WS] Connection attempt with api_key: {api_key[:30]}...")
         await websocket.accept()
-        portal_url = verify_token(token)
-        logger.info(f"[WS] Token verified, portal_url: {portal_url}")
+        portal_url = verify_api_key(api_key)
+        logger.info(f"[WS] API Key verified, portal_url: {portal_url}")
         if portal_url:
             self.active_connections[portal_url] = websocket
             logger.info(f"[WS] Connection added for {portal_url}")
             logger.info(f"[WS] Active connections: {list(self.active_connections.keys())}")
         else:
-            logger.info(f"[WS] Token verification failed")
+            logger.info(f"[WS] API Key verification failed")
     
-    def disconnect(self, token: str):
-        portal_url = verify_token(token)
+    def disconnect(self, api_key: str):
+        portal_url = verify_api_key(api_key)
         if portal_url and portal_url in self.active_connections:
             del self.active_connections[portal_url]
     
@@ -742,12 +499,12 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 @app.websocket("/ws/agent")
-async def websocket_endpoint(websocket: WebSocket, token: str):
-    await manager.connect(websocket, token)
+async def websocket_endpoint(websocket: WebSocket, api_key: str):
+    await manager.connect(websocket, api_key)
     import asyncio
     
     # 获取 portal_url
-    portal_url = verify_token(token)
+    portal_url = verify_api_key(api_key)
     
     # 启动心跳任务
     heartbeat_task = None
@@ -777,7 +534,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
             
             elif data.get("type") == "sync_request":
                 # 返回未同步的消息
-                portal_url = verify_token(token)
+                portal_url = verify_api_key(api_key)
                 if portal_url:
                     conn = sqlite3.connect(DATABASE_PATH)
                     cursor = conn.cursor()
@@ -810,7 +567,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
                     })
     
     except WebSocketDisconnect:
-        manager.disconnect(token)
+        manager.disconnect(api_key)
 
 # 静态文件（管理后台）
 import os
