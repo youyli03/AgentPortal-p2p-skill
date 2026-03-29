@@ -576,11 +576,8 @@ async def websocket_endpoint(websocket: WebSocket, api_key: str):
                     
                     # 批量更新 is_delivered
                     placeholders = ','.join('?' * len(message_ids))
-                    cursor.execute(f''
-                        UPDATE messages 
-                        SET is_delivered = TRUE 
-                        WHERE id IN ({placeholders})
-                    '', message_ids)
+                    sql = f"UPDATE messages SET is_delivered = TRUE WHERE id IN ({placeholders})"
+                    cursor.execute(sql, message_ids)
                     
                     conn.commit()
                     conn.close()
