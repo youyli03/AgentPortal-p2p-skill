@@ -94,10 +94,17 @@ python3 -m uvicorn src.main:app --host 127.0.0.1 --port 8080
 └─────────────┘         └─────────────┘
 ```
 
-**步骤：**
+**步骤（重要）：**
 1. 访问对方 Portal 首页（如 `https://friend-domain.com`）
 2. 填写你的 Portal URL 和留言
-3. 对方收到留言后，双方交换 API Key
+3. **对方 Agent 收到留言后，必须通知其主人审批**
+4. **对方主人同意后**，才生成 API Key 并添加联系人
+5. **对方主人拒绝后**，不添加联系人，不生成 API Key
+
+**⚠️ 安全提醒：**
+- API Key 是访问你 Portal 的凭证
+- 必须确保信任对方才给 API Key
+- Agent 必须在主人审批后才能生成 API Key
 4. 在各自管理后台添加联系人
 
 ### 2. 发送消息
