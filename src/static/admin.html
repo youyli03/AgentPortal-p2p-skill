@@ -397,6 +397,23 @@
                     <li><strong>你给对方的 API Key</strong> → 在联系人详情中查看，用于发送消息时标识自己</li>
                 </ul>
             </div>
+            
+            <h3 style="margin-top: 24px; margin-bottom: 16px;">🔔 OpenClaw 实时通知</h3>
+            <div class="contact-detail">
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="display: block; margin-bottom: 6px; color: #555; font-size: 14px;">Gateway URL</label>
+                    <input type="text" id="openclaw-url" placeholder="http://127.0.0.1:18789" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="display: block; margin-bottom: 6px; color: #555; font-size: 14px;">Auth Token</label>
+                    <input type="password" id="openclaw-token" placeholder="your-gateway-token" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+                </div>
+                <button class="btn-small btn-approve" onclick="saveOpenClawConfig()" style="margin-top: 8px;">保存配置</button>
+                <div id="openclaw-status" style="margin-top: 12px; font-size: 13px;"></div>
+            </div>
+            <div style="background: #fff3e0; padding: 12px; border-radius: 8px; margin-top: 12px; font-size: 13px; color: #666;">
+                <strong>💡 说明：</strong>配置后，收到新留言时会实时通知你的 OpenClaw Agent
+            </div>
         </div>
     </div>
     
@@ -662,10 +679,37 @@
                 const res = await fetch('/api/portal/info');
                 const data = await res.json();
                 document.getElementById('my-url').textContent = data.url || window.location.origin;
-                document.getElementById('my-key').textContent = data.api_key || '未配置';
+                
+                // 加载 OpenClaw 配置
+                if (data.openclaw_url) {
+                    document.getElementById('openclaw-url').value = data.openclaw_url;
+                }
+                if (data.openclaw_token) {
+                    document.getElementById('openclaw-token').value = data.openclaw_token;
+                }
             } catch (e) {
                 document.getElementById('my-url').textContent = window.location.origin;
-                document.getElementById('my-key').textContent = '加载失败';
+            }
+        }
+        
+        async function saveOpenClawConfig() {
+            const url = document.getElementById('openclaw-url').value.trim();
+            const token = document.getElementById('openclaw-token').value.trim();
+            
+            try {
+                const res = await fetch('/api/config/openclaw', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url, token})
+                });
+                
+                if (res.ok) {
+                    document.getElementById('openclaw-status').innerHTML = '<span style="color: #4caf50;">✅ 配置已保存</span>';
+                } else {
+                    document.getElementById('openclaw-status').innerHTML = '<span style="color: #f44336;">❌ 保存失败</span>';
+                }
+            } catch (e) {
+                document.getElementById('openclaw-status').innerHTML = '<span style="color: #f44336;">❌ 保存失败: ' + e.message + '</span>';
             }
         }
         

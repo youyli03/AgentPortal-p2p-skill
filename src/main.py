@@ -87,6 +87,14 @@ def init_db():
         )
     ''')
     
+    # 配置表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS config (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+    ''')
+    
     # API Keys 表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS api_keys (
@@ -126,6 +134,13 @@ class ApiKeyCreateRequest(BaseModel):
 class ApiKeyExchangeRequest(BaseModel):
     portal_url: str
     their_api_key: str
+
+class ReceiveMessageRequest(BaseModel):
+    """接收来自其他 Agent 的消息"""
+    api_key: str           # 发送方使用的 API Key（我方给对方的 Key）
+    from_portal: str       # 发送方 Portal URL
+    content: str
+    message_type: str = "text"
 
 # 工具函数
 def generate_api_key() -> str:
@@ -172,6 +187,38 @@ def get_my_portal_url() -> str:
 
 # API 路由
 
+async def notify_openclaw(content: str, message_type: str = "guest_message"):
+    """发送通知到 OpenClaw
+    
+    当前实现：记录到待通知队列，由 Agent 通过心跳检查拉取
+    """
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        # 保存到待通知表
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS pending_notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                type TEXT NOT NULL,
+                content TEXT NOT NULL,
+                portal TEXT NOT NULL,
+                is_notified BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        cursor.execute('''
+            INSERT INTO pending_notifications (type, content, portal)
+            VALUES (?, ?, ?)
+        ''', (message_type, content, get_my_portal_url()))
+        
+        conn.commit()
+        conn.close()
+        print(f"[OpenClaw Notify] Queued: {content[:50]}...")
+    except Exception as e:
+        print(f"[OpenClaw Notify] Failed: {e}")
+
 @app.post("/api/guest/leave-message")
 async def leave_message(request: GuestMessageRequest, request_obj: Request):
     """匿名留言"""
@@ -186,6 +233,17 @@ async def leave_message(request: GuestMessageRequest, request_obj: Request):
     message_id = cursor.lastrowid
     conn.commit()
     conn.close()
+    
+    # 广播新留言给所有连接的 Agent
+    await manager.broadcast({
+        "type": "new_guest_message",
+        "message_id": message_id,
+        "content": request.content[:100],  # 只发送前100字符
+        "created_at": get_now().isoformat()
+    })
+    
+    # 发送 OpenClaw 通知
+    await notify_openclaw(f"新留言: {request.content[:100]}", "guest_message")
     
     return {"status": "ok", "message_id": message_id}
 
@@ -456,6 +514,62 @@ async def send_message(request: SendMessageRequest, background_tasks: Background
     
     return {"status": "delivered", "message_id": message_id}
 
+@app.post("/api/message/receive")
+async def receive_message(request: ReceiveMessageRequest, background_tasks: BackgroundTasks):
+    """
+    接收来自其他 Agent 的消息
+    
+    流程：
+    1. 验证 api_key（必须是我给对方的 Key）
+    2. 保存消息到数据库
+    3. 通过 WebSocket 推送给我的 Agent
+    """
+    my_portal = get_my_portal_url()
+    
+    # 验证 API Key（检查是否是我给某个联系人的 Key）
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT portal_url, display_name, agent_name FROM contacts 
+        WHERE my_api_key = ?
+    ''', (request.api_key,))
+    
+    contact = cursor.fetchone()
+    if not contact:
+        conn.close()
+        raise HTTPException(status_code=401, detail="Invalid API Key")
+    
+    contact_portal, display_name, agent_name = contact
+    
+    # 验证 from_portal 是否匹配
+    if contact_portal != request.from_portal:
+        conn.close()
+        raise HTTPException(status_code=403, detail="Portal URL mismatch")
+    
+    # 保存消息（我是接收方）
+    cursor.execute('''
+        INSERT INTO messages (from_portal, to_portal, content, message_type, sender_api_key, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (request.from_portal, my_portal, request.content, request.message_type, request.api_key, get_now().strftime('%Y-%m-%d %H:%M:%S')))
+    
+    message_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    
+    # 通过 WebSocket 推送给我的 Agent
+    background_tasks.add_task(push_message, my_portal, {
+        "type": "new_message",
+        "id": message_id,
+        "from": request.from_portal,
+        "from_name": display_name or agent_name or request.from_portal,
+        "content": request.content,
+        "message_type": request.message_type,
+        "created_at": get_now().isoformat()
+    })
+    
+    return {"status": "received", "message_id": message_id}
+
 @app.get("/api/messages")
 async def get_messages(contact_portal: str, since: Optional[str] = None):
     """获取与某个联系人的消息"""
@@ -617,6 +731,45 @@ async def update_contact(contact_id: int, request: CreateContactRequest):
     
     return {"status": "updated"}
 
+@app.get("/api/notifications/pending")
+async def get_pending_notifications():
+    """获取待通知的消息（供 OpenClaw 拉取）"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    # 获取未通知的消息
+    cursor.execute('''
+        SELECT id, type, content, portal, created_at 
+        FROM pending_notifications 
+        WHERE is_notified = FALSE
+        ORDER BY created_at ASC
+    ''')
+    
+    notifications = cursor.fetchall()
+    
+    # 标记为已通知
+    if notifications:
+        ids = [n[0] for n in notifications]
+        placeholders = ','.join('?' * len(ids))
+        sql = f"UPDATE pending_notifications SET is_notified = TRUE WHERE id IN ({placeholders})"
+        cursor.execute(sql, ids)
+        conn.commit()
+    
+    conn.close()
+    
+    return {
+        "notifications": [
+            {
+                "id": n[0],
+                "type": n[1],
+                "content": n[2],
+                "portal": n[3],
+                "created_at": n[4]
+            }
+            for n in notifications
+        ]
+    }
+
 @app.get("/api/portal/info")
 async def get_portal_info():
     """获取当前 Portal 信息"""
@@ -632,12 +785,44 @@ async def get_portal_info():
     ''')
     
     result = cursor.fetchone()
+    
+    # 获取 OpenClaw 配置
+    cursor.execute('SELECT value FROM config WHERE key = ?', ('openclaw_url',))
+    openclaw_url = cursor.fetchone()
+    cursor.execute('SELECT value FROM config WHERE key = ?', ('openclaw_token',))
+    openclaw_token = cursor.fetchone()
+    
     conn.close()
     
     return {
         "url": get_my_portal_url(),
-        "api_key": result[0] if result else None
+        "api_key": result[0] if result else None,
+        "openclaw_url": openclaw_url[0] if openclaw_url else None,
+        "openclaw_token": openclaw_token[0] if openclaw_token else None
     }
+
+class OpenClawConfig(BaseModel):
+    url: str
+    token: str
+
+@app.post("/api/config/openclaw")
+async def save_openclaw_config(request: OpenClawConfig):
+    """保存 OpenClaw 配置"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)
+    ''', ('openclaw_url', request.url))
+    
+    cursor.execute('''
+        INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)
+    ''', ('openclaw_token', request.token))
+    
+    conn.commit()
+    conn.close()
+    
+    return {"status": "saved"}
 
 # WebSocket 连接管理
 class ConnectionManager:
@@ -673,6 +858,22 @@ class ConnectionManager:
             logger.info(f"[DEBUG] Message sent to {portal_url}")
         else:
             logger.info(f"[DEBUG] No active connection for {portal_url}")
+    
+    async def broadcast(self, message: dict):
+        """广播消息给所有连接的 Agent"""
+        import logging
+        logger = logging.getLogger(__name__)
+        disconnected = []
+        for portal_url, websocket in self.active_connections.items():
+            try:
+                await websocket.send_json(message)
+                logger.info(f"[BROADCAST] Message sent to {portal_url}")
+            except Exception as e:
+                logger.error(f"[BROADCAST] Failed to send to {portal_url}: {e}")
+                disconnected.append(portal_url)
+        # 清理断开的连接
+        for portal_url in disconnected:
+            del self.active_connections[portal_url]
 
 manager = ConnectionManager()
 
