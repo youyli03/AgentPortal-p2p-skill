@@ -389,10 +389,13 @@
                     <div class="info-label">Portal URL</div>
                     <div class="info-value" id="my-url">加载中...</div>
                 </div>
-                <div class="info-row">
-                    <div class="info-label">我的 API Key</div>
-                    <div class="info-value" id="my-key">加载中...</div>
-                </div>
+            </div>
+            <div style="background: #e3f2fd; padding: 16px; border-radius: 8px; margin-top: 16px;">
+                <strong>💡 API Key 说明</strong>
+                <ul style="margin-top: 8px; padding-left: 20px; color: #555; font-size: 14px;">
+                    <li><strong>对方给你的 API Key</strong> → 在联系人详情中查看，用于验证对方身份</li>
+                    <li><strong>你给对方的 API Key</strong> → 在联系人详情中查看，用于发送消息时标识自己</li>
+                </ul>
             </div>
         </div>
     </div>
@@ -551,13 +554,19 @@
                         <div class="info-label">用户名称</div>
                         <div class="info-value">${c.user_name || '-'}</div>
                     </div>
-                    <div class="info-row">
-                        <div class="info-label">对方的 API Key</div>
-                        <div class="info-value">${c.their_api_key || '未设置'}</div>
+                    <div style="background: #e8f5e9; padding: 12px; border-radius: 8px; margin: 12px 0;">
+                        <div class="info-row" style="margin-bottom: 8px;">
+                            <div class="info-label">🔑 对方给你的 API Key</div>
+                            <div class="info-value" style="background: #fff;">${c.their_api_key || '未设置'}</div>
+                        </div>
+                        <div style="font-size: 12px; color: #666; margin-left: 140px;">→ 对方发消息给你时用此标识身份</div>
                     </div>
-                    <div class="info-row">
-                        <div class="info-label">你给对方的 Key</div>
-                        <div class="info-value">${c.api_key || '未设置'}</div>
+                    <div style="background: #fff3e0; padding: 12px; border-radius: 8px; margin: 12px 0;">
+                        <div class="info-row" style="margin-bottom: 8px;">
+                            <div class="info-label">🔑 你给对方的 API Key</div>
+                            <div class="info-value" style="background: #fff;">${c.my_api_key || c.api_key || '未设置'}</div>
+                        </div>
+                        <div style="font-size: 12px; color: #666; margin-left: 140px;">→ 你发消息给对方时用此标识身份</div>
                     </div>
                 </div>
                 <h3 style="margin-bottom: 12px; font-size: 16px;">💬 消息记录</h3>
@@ -615,7 +624,7 @@
             document.getElementById('edit-name').value = c.display_name || '';
             document.getElementById('edit-agent').value = c.agent_name || '';
             document.getElementById('edit-user').value = c.user_name || '';
-            document.getElementById('edit-mykey').value = c.api_key || '';
+            document.getElementById('edit-mykey').value = c.my_api_key || c.api_key || '';
             document.getElementById('edit-theirkey').value = c.their_api_key || '';
             document.getElementById('edit-modal').classList.remove('hidden');
         }
@@ -631,7 +640,7 @@
                 display_name: document.getElementById('edit-name').value.trim(),
                 agent_name: document.getElementById('edit-agent').value.trim(),
                 user_name: document.getElementById('edit-user').value.trim(),
-                api_key: document.getElementById('edit-mykey').value.trim(),
+                my_api_key: document.getElementById('edit-mykey').value.trim(),
                 their_api_key: document.getElementById('edit-theirkey').value.trim()
             };
             try {

@@ -64,8 +64,8 @@ def init_db():
             display_name TEXT,
             agent_name TEXT,
             user_name TEXT,
-            api_key TEXT NOT NULL,
-            their_api_key TEXT,
+            my_api_key TEXT NOT NULL,  -- 我给对方的API Key，对方用此验证我的身份
+            their_api_key TEXT,        -- 对方给我的API Key，我用此验证对方身份
             is_verified BOOLEAN DEFAULT TRUE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             expires_at TIMESTAMP
@@ -80,6 +80,7 @@ def init_db():
             to_portal TEXT NOT NULL,
             content TEXT NOT NULL,
             message_type TEXT DEFAULT 'text',
+            sender_api_key TEXT,        -- 发送方使用的API Key，用于验证身份
             file_url TEXT,
             is_delivered BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -113,8 +114,7 @@ class MessageHistoryRequest(BaseModel):
     offset: int = 0
 
 class SendMessageRequest(BaseModel):
-    api_key: str                    # 发送方 API Key（Portal B 给我的）
-    to_portal: str                  # 接收方 Portal URL
+    contact_id: int                 # 联系人ID，系统会自动使用我给对方的API Key
     content: str
     message_type: str = "text"
 
@@ -133,13 +133,30 @@ def generate_api_key() -> str:
     return "ap2p_" + secrets.token_urlsafe(32)
 
 def verify_api_key(api_key: str) -> Optional[str]:
-    """验证 API Key，返回对应的 portal_url"""
+    """验证 API Key，返回对应的 portal_url
+    
+    检查两个地方：
+    1. api_keys 表 - 我自己生成的 Key（用于 WebSocket 连接）
+    2. contacts 表 - 联系人给我的 Key（their_api_key，用于验证对方身份）
+    """
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
+    # 1. 检查是否是我自己的 Key
     cursor.execute('''
         SELECT portal_url FROM api_keys 
         WHERE key_id = ? AND is_active = TRUE
+    ''', (api_key,))
+    
+    result = cursor.fetchone()
+    if result:
+        conn.close()
+        return result[0]
+    
+    # 2. 检查是否是某个联系人给我的 Key（their_api_key）
+    cursor.execute('''
+        SELECT portal_url FROM contacts 
+        WHERE their_api_key = ?
     ''', (api_key,))
     
     result = cursor.fetchone()
@@ -398,23 +415,29 @@ async def push_message(to_portal: str, message: dict):
 
 @app.post("/api/message/send")
 async def send_message(request: SendMessageRequest, background_tasks: BackgroundTasks):
-    """发送消息"""
-    # 验证 API Key，获取发送方 Portal URL
-    from_portal = verify_api_key(request.api_key)
-    if not from_portal:
-        raise HTTPException(status_code=401, detail="Invalid API Key")
+    """发送消息给指定联系人"""
+    my_portal = get_my_portal_url()
     
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
-    # 目标 Portal 直接从请求获取
-    to_portal = request.to_portal
-    
-    # 保存消息
+    # 获取联系人信息
     cursor.execute('''
-        INSERT INTO messages (from_portal, to_portal, content, message_type, created_at)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (from_portal, to_portal, request.content, request.message_type, get_now().strftime('%Y-%m-%d %H:%M:%S')))
+        SELECT portal_url, my_api_key FROM contacts WHERE id = ?
+    ''', (request.contact_id,))
+    contact = cursor.fetchone()
+    
+    if not contact:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    to_portal, my_api_key = contact
+    
+    # 保存消息（使用我给对方的API Key作为发送方标识）
+    cursor.execute('''
+        INSERT INTO messages (from_portal, to_portal, content, message_type, sender_api_key, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (my_portal, to_portal, request.content, request.message_type, my_api_key, get_now().strftime('%Y-%m-%d %H:%M:%S')))
     
     message_id = cursor.lastrowid
     conn.commit()
@@ -424,7 +447,8 @@ async def send_message(request: SendMessageRequest, background_tasks: Background
     background_tasks.add_task(push_message, to_portal, {
         "type": "message",
         "id": message_id,
-        "from": from_portal,
+        "from": my_portal,
+        "api_key": my_api_key,  # 让对方可以用此验证我的身份
         "content": request.content,
         "message_type": request.message_type,
         "created_at": get_now().isoformat()
@@ -476,7 +500,7 @@ async def get_contacts():
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT id, portal_url, display_name, agent_name, user_name, api_key, their_api_key, is_verified, created_at
+        SELECT id, portal_url, display_name, agent_name, user_name, my_api_key, their_api_key, is_verified, created_at
         FROM contacts
         ORDER BY created_at DESC
     ''')
@@ -486,7 +510,7 @@ async def get_contacts():
     # 获取每个联系人的未读消息数
     result = []
     for c in contacts:
-        contact_id, portal_url, display_name, agent_name, user_name, api_key, their_api_key, is_verified, created_at = c
+        contact_id, portal_url, display_name, agent_name, user_name, my_api_key, their_api_key, is_verified, created_at = c
         
         cursor.execute('''
             SELECT COUNT(*) FROM messages 
@@ -501,8 +525,8 @@ async def get_contacts():
             "display_name": display_name,
             "agent_name": agent_name,
             "user_name": user_name,
-            "api_key": api_key,
-            "their_api_key": their_api_key,
+            "my_api_key": my_api_key,  # 我给对方的API Key
+            "their_api_key": their_api_key,  # 对方给我的API Key
             "is_verified": is_verified,
             "created_at": created_at,
             "unread_count": unread_count
@@ -517,8 +541,8 @@ class CreateContactRequest(BaseModel):
     display_name: Optional[str] = None
     agent_name: Optional[str] = None
     user_name: Optional[str] = None
-    api_key: Optional[str] = None
-    their_api_key: Optional[str] = None
+    my_api_key: Optional[str] = None  # 我给对方的API Key
+    their_api_key: Optional[str] = None  # 对方给我的API Key
 
 @app.post("/api/contacts")
 async def create_contact(request: CreateContactRequest):
@@ -528,14 +552,14 @@ async def create_contact(request: CreateContactRequest):
     
     cursor.execute('''
         INSERT OR REPLACE INTO contacts 
-        (portal_url, display_name, agent_name, user_name, api_key, their_api_key, is_verified, created_at)
+        (portal_url, display_name, agent_name, user_name, my_api_key, their_api_key, is_verified, created_at)
         VALUES (?, ?, ?, ?, ?, ?, TRUE, ?)
     ''', (
         request.portal_url,
         request.display_name,
         request.agent_name,
         request.user_name,
-        request.api_key or generate_api_key(),
+        request.my_api_key or generate_api_key(),  # 自动生成我给对方的Key
         request.their_api_key,
         get_now().strftime('%Y-%m-%d %H:%M:%S')
     ))
@@ -577,13 +601,13 @@ async def update_contact(contact_id: int, request: CreateContactRequest):
     # 更新字段
     cursor.execute('''
         UPDATE contacts 
-        SET display_name = ?, agent_name = ?, user_name = ?, api_key = ?, their_api_key = ?
+        SET display_name = ?, agent_name = ?, user_name = ?, my_api_key = ?, their_api_key = ?
         WHERE id = ?
     ''', (
         request.display_name,
         request.agent_name,
         request.user_name,
-        request.api_key,
+        request.my_api_key,
         request.their_api_key,
         contact_id
     ))
