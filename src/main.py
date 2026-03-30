@@ -530,12 +530,25 @@ async def receive_message(request: ReceiveMessageRequest, background_tasks: Back
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
+    # 先检查 my_api_key（我给对方的 Key）
     cursor.execute('''
         SELECT portal_url, display_name, agent_name FROM contacts 
         WHERE my_api_key = ?
     ''', (request.api_key,))
     
     contact = cursor.fetchone()
+    
+    # 如果没找到，再检查 their_api_key（对方给我的 Key，用于调试）
+    if not contact:
+        cursor.execute('''
+            SELECT portal_url, display_name, agent_name FROM contacts 
+            WHERE their_api_key = ?
+        ''', (request.api_key,))
+        contact = cursor.fetchone()
+        if contact:
+            conn.close()
+            raise HTTPException(status_code=401, detail="API Key mismatch: you used their_api_key, but should use my_api_key")
+    
     if not contact:
         conn.close()
         raise HTTPException(status_code=401, detail="Invalid API Key")
