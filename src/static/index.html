@@ -134,6 +134,53 @@
         .footer a:hover {
             text-decoration: underline;
         }
+        
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            body { padding: 20px 16px; }
+            .header h1 { font-size: 32px; }
+            .header p { font-size: 16px; }
+            .card { 
+                padding: 20px; 
+                border-radius: 12px;
+                margin-bottom: 16px;
+            }
+            .card h2 { font-size: 20px; }
+            .form-group input,
+            .form-group textarea {
+                padding: 14px;
+                font-size: 16px; /* 防止 iOS 缩放 */
+            }
+            .btn {
+                width: 100%;
+                padding: 16px;
+                font-size: 16px;
+            }
+            .info-box {
+                padding: 12px;
+            }
+            .info-box ol {
+                margin-left: 16px;
+            }
+        }
+        
+        /* 小屏幕手机 */
+        @media (max-width: 480px) {
+            .header h1 { font-size: 28px; }
+            .header p { font-size: 14px; }
+            .card { padding: 16px; }
+            .card h2 { font-size: 18px; }
+            .footer { font-size: 12px; margin-top: 30px; }
+        }
+        
+        /* 触摸优化 */
+        .btn, .form-group input, .form-group textarea {
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        .btn:active {
+            transform: scale(0.98);
+        }
     </style>
 </head>
 <body>
