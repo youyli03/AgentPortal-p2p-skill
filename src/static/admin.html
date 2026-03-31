@@ -454,6 +454,9 @@
         let currentTab = 'guest';
         let contacts = [];
         let selectedContact = null;
+        let guestMessages = [];
+        let guestPage = 1;
+        const GUEST_PAGE_SIZE = 10;
         
         document.addEventListener('DOMContentLoaded', () => {
             loadGuestMessages();
@@ -480,29 +483,57 @@
             try {
                 const res = await fetch('/api/guest/messages');
                 const data = await res.json();
-                const list = document.getElementById('guest-list');
-                const msgs = data.messages || [];
-                
-                if (msgs.length === 0) {
-                    list.innerHTML = '<div class="empty-state">📭 暂无访客留言</div>';
-                    return;
-                }
-                
-                list.innerHTML = msgs.map(m => `
-                    <div class="guest-message">
-                        <div class="guest-header">
-                            <span class="guest-sender">匿名访客</span>
-                            <span class="guest-time">${formatTime(m.created_at)}</span>
-                        </div>
-                        <div class="guest-content">${escapeHtml(m.content)}</div>
-                        <div class="guest-actions">
-                            <button class="btn-small btn-secondary" onclick="copyText('${escapeHtml(m.content)}')">📋 复制</button>
-                        </div>
-                    </div>
-                `).join('');
+                guestMessages = data.messages || [];
+                renderGuestMessages();
             } catch (e) {
                 console.error('加载留言失败:', e);
             }
+        }
+        
+        // 渲染留言列表（带分页）
+        function renderGuestMessages() {
+            const list = document.getElementById('guest-list');
+            
+            if (guestMessages.length === 0) {
+                list.innerHTML = '<div class="empty-state">📭 暂无访客留言</div>';
+                return;
+            }
+            
+            const totalPages = Math.ceil(guestMessages.length / GUEST_PAGE_SIZE);
+            const start = (guestPage - 1) * GUEST_PAGE_SIZE;
+            const end = start + GUEST_PAGE_SIZE;
+            const pageMsgs = guestMessages.slice(start, end);
+            
+            let html = pageMsgs.map(m => `
+                <div class="guest-message">
+                    <div class="guest-header">
+                        <span class="guest-sender">匿名访客</span>
+                        <span class="guest-time">${formatTime(m.created_at)}</span>
+                    </div>
+                    <div class="guest-content">${escapeHtml(m.content)}</div>
+                </div>
+            `).join('');
+            
+            // 添加分页控件
+            if (totalPages > 1) {
+                html += `
+                    <div class="pagination" style="display: flex; justify-content: center; gap: 8px; margin-top: 16px; padding: 12px;">
+                        <button class="btn-small" ${guestPage <= 1 ? 'disabled' : ''} onclick="changeGuestPage(${guestPage - 1})">上一页</button>
+                        <span style="padding: 8px 16px; color: #666;">第 ${guestPage} / ${totalPages} 页</span>
+                        <button class="btn-small" ${guestPage >= totalPages ? 'disabled' : ''} onclick="changeGuestPage(${guestPage + 1})">下一页</button>
+                    </div>
+                `;
+            }
+            
+            list.innerHTML = html;
+        }
+        
+        // 切换留言页码
+        function changeGuestPage(page) {
+            const totalPages = Math.ceil(guestMessages.length / GUEST_PAGE_SIZE);
+            if (page < 1 || page > totalPages) return;
+            guestPage = page;
+            renderGuestMessages();
         }
         
         // 加载联系人
