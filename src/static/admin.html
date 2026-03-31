@@ -97,11 +97,12 @@
         .guest-content {
             white-space: pre-wrap;
             color: #333;
-            line-height: 1.6;
+            line-height: 1.5;
             margin-bottom: 12px;
-            padding: 12px;
+            padding: 10px;
             background: white;
             border-radius: 8px;
+            font-size: 14px;
         }
         .guest-actions {
             display: flex;
@@ -554,39 +555,42 @@
             
             const c = selectedContact;
             document.getElementById('contact-detail-area').innerHTML = `
-                <div class="contact-detail">
-                    <div class="info-row">
-                        <div class="info-label">显示名称</div>
-                        <div class="info-value">${c.display_name || '-'}</div>
-                    </div>
-                    <div class="info-row">
-                        <div class="info-label">Portal URL</div>
-                        <div class="info-value">${c.portal_url}</div>
-                    </div>
-                    <div class="info-row">
-                        <div class="info-label">Agent 名称</div>
-                        <div class="info-value">${c.agent_name || '-'}</div>
-                    </div>
-                    <div class="info-row">
-                        <div class="info-label">用户名称</div>
-                        <div class="info-value">${c.user_name || '-'}</div>
-                    </div>
-                    <div style="background: #e8f5e9; padding: 12px; border-radius: 8px; margin: 12px 0;">
-                        <div class="info-row" style="margin-bottom: 8px;">
-                            <div class="info-label">🔑 对方给你的 API Key</div>
-                            <div class="info-value" style="background: #fff;">${c.their_api_key || '未设置'}</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="font-size: 16px; margin: 0;">💬 与 ${c.display_name || c.agent_name || '联系人'} 的消息</h3>
+                    <button class="btn-small btn-primary" onclick="toggleContactEdit(${c.id})">编辑联系人</button>
+                </div>
+                <div id="contact-edit-form" class="hidden" style="margin-bottom: 16px;">
+                    <div class="contact-detail">
+                        <div class="info-row">
+                            <div class="info-label">显示名称</div>
+                            <div class="info-value">${c.display_name || '-'}</div>
                         </div>
-                        <div style="font-size: 12px; color: #666; margin-left: 140px;">→ 对方发消息给你时用此标识身份</div>
-                    </div>
-                    <div style="background: #fff3e0; padding: 12px; border-radius: 8px; margin: 12px 0;">
-                        <div class="info-row" style="margin-bottom: 8px;">
-                            <div class="info-label">🔑 你给对方的 API Key</div>
-                            <div class="info-value" style="background: #fff;">${c.my_api_key || c.api_key || '未设置'}</div>
+                        <div class="info-row">
+                            <div class="info-label">Portal URL</div>
+                            <div class="info-value">${c.portal_url}</div>
                         </div>
-                        <div style="font-size: 12px; color: #666; margin-left: 140px;">→ 你发消息给对方时用此标识身份</div>
+                        <div class="info-row">
+                            <div class="info-label">Agent 名称</div>
+                            <div class="info-value">${c.agent_name || '-'}</div>
+                        </div>
+                        <div class="info-row">
+                            <div class="info-label">用户名称</div>
+                            <div class="info-value">${c.user_name || '-'}</div>
+                        </div>
+                        <div style="background: #e8f5e9; padding: 12px; border-radius: 8px; margin: 12px 0;">
+                            <div class="info-row" style="margin-bottom: 8px;">
+                                <div class="info-label">🔑 对方给你的 API Key</div>
+                                <div class="info-value" style="background: #fff;">${c.their_api_key || '未设置'}</div>
+                            </div>
+                        </div>
+                        <div style="background: #fff3e0; padding: 12px; border-radius: 8px; margin: 12px 0;">
+                            <div class="info-row" style="margin-bottom: 8px;">
+                                <div class="info-label">🔑 你给对方的 API Key</div>
+                                <div class="info-value" style="background: #fff;">${c.my_api_key || c.api_key || '未设置'}</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <h3 style="margin-bottom: 12px; font-size: 16px;">💬 消息记录</h3>
                 <div class="message-list" id="contact-messages">
                     <div class="empty-state">加载中...</div>
                 </div>
@@ -610,13 +614,17 @@
                     return;
                 }
                 
-                container.innerHTML = msgs.map(m => `
+                // 反转消息顺序，最新的显示在最下面
+                const reversedMsgs = [...msgs].reverse();
+                
+                container.innerHTML = reversedMsgs.map(m => `
                     <div class="message-bubble ${m.type}">
                         <div>${escapeHtml(m.content)}</div>
                         <div class="message-time">${formatTime(m.created_at)}</div>
                     </div>
                 `).join('');
                 
+                // 滚动到最底部（最新消息）
                 container.scrollTop = container.scrollHeight;
             } catch (e) {
                 console.error('加载消息失败:', e);
@@ -631,6 +639,13 @@
                 loadContacts();
             } catch (e) {
                 alert('删除失败');
+            }
+        }
+        
+        function toggleContactEdit(id) {
+            const form = document.getElementById('contact-edit-form');
+            if (form) {
+                form.classList.toggle('hidden');
             }
         }
         
