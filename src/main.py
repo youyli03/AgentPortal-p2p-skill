@@ -292,6 +292,23 @@ async def update_message_status(message_id: int, request: Request):
     
     return {"status": "updated"}
 
+@app.post("/api/guest/messages/{message_id}/read")
+async def mark_message_read(message_id: int):
+    """标记留言为已读（不需要审批）"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        UPDATE guest_messages 
+        SET is_read = TRUE 
+        WHERE id = ?
+    ''', (message_id,))
+    
+    conn.commit()
+    conn.close()
+    
+    return {"status": "marked_as_read", "message_id": message_id}
+
 # ========== API Key 管理接口 ==========
 
 @app.post("/api/key/create")
