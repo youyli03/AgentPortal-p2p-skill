@@ -880,6 +880,8 @@ class ConnectionManager:
             logger.info(f"[DEBUG] Message sent to {portal_url}")
         else:
             logger.info(f"[DEBUG] No active connection for {portal_url}")
+            # 抛出异常，让调用者知道发送失败
+            raise Exception(f"No active WebSocket connection for {portal_url}")
     
     async def broadcast(self, message: dict):
         """广播消息给所有连接的 Agent"""
