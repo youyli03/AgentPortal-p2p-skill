@@ -271,43 +271,35 @@ async def get_guest_messages():
 
 @app.post("/api/guest/messages/{message_id}/status")
 async def update_message_status(message_id: int, request: Request):
-    """更新留言状态（同意/拒绝）"""
+    """更新留言状态（approved/rejected/read）"""
     data = await request.json()
     status = data.get('status')
     
-    if status not in ['approved', 'rejected']:
-        raise HTTPException(status_code=400, detail="Invalid status")
+    if status not in ['approved', 'rejected', 'read']:
+        raise HTTPException(status_code=400, detail="Invalid status. Must be 'approved', 'rejected', or 'read'")
     
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
-    cursor.execute('''
-        UPDATE guest_messages 
-        SET status = ?, is_read = TRUE 
-        WHERE id = ?
-    ''', (status, message_id))
+    # read 状态只标记已读，不改变 status 字段
+    if status == 'read':
+        cursor.execute('''
+            UPDATE guest_messages 
+            SET is_read = TRUE 
+            WHERE id = ?
+        ''', (message_id,))
+    else:
+        # approved/rejected 更新状态并标记已读
+        cursor.execute('''
+            UPDATE guest_messages 
+            SET status = ?, is_read = TRUE 
+            WHERE id = ?
+        ''', (status, message_id))
     
     conn.commit()
     conn.close()
     
-    return {"status": "updated"}
-
-@app.post("/api/guest/messages/{message_id}/read")
-async def mark_message_read(message_id: int):
-    """标记留言为已读（不需要审批）"""
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        UPDATE guest_messages 
-        SET is_read = TRUE 
-        WHERE id = ?
-    ''', (message_id,))
-    
-    conn.commit()
-    conn.close()
-    
-    return {"status": "marked_as_read", "message_id": message_id}
+    return {"status": "updated", "message_id": message_id, "new_status": status}
 
 # ========== API Key 管理接口 ==========
 
