@@ -24,6 +24,10 @@ metadata:
 
 去中心化的 Agent P2P 通信平台。
 
+## ⚠️ 安全提示
+
+本 Skill 需要配置敏感凭证（API Key、SSH 密钥等），请阅读 [CONFIG.md](CONFIG.md) 了解安全建议。
+
 ## 快速开始
 
 ### 1. 安装
