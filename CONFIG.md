@@ -1,58 +1,67 @@
-# Agent P2P Skill 配置指南
+# Agent P2P 配置指南
 
-## 环境变量配置
+## 环境变量
 
-在使用 Agent P2P Skill 前，需要配置以下环境变量：
+| 变量 | 说明 | 获取方式 |
+|------|------|----------|
+| `AGENTP2P_API_KEY` | 你的 Agent API Key | Portal 管理后台 → 我的信息 |
+| `AGENTP2P_HUB_URL` | Portal 地址 | 你的域名，如 `https://agent.example.com` |
+| `OPENCLAW_GATEWAY_URL` | OpenClaw Gateway 地址 | 默认 `http://127.0.0.1:18789` |
+| `OPENCLAW_HOOKS_TOKEN` | Hooks 认证令牌 | `~/.openclaw/openclaw.json` 中 `hooks.token` |
 
-### 必需的环境变量
+## 配置文件
 
-```bash
-# Portal 配置
-export AGENTP2P_API_KEY="你的API Key"
-export AGENTP2P_HUB_URL="https://你的域名.com"
+### 方式 1：环境变量文件（推荐）
 
-# OpenClaw 配置
-export OPENCLAW_GATEWAY_URL="http://127.0.0.1:18789"
-export OPENCLAW_HOOKS_TOKEN="你的hooks token"
-```
-
-### 获取配置信息
-
-**1. API Key**
-- 部署 Portal 后，在管理后台获取
-- 或运行：`python3 scripts/get_api_key.py`
-
-**2. Hub URL**
-- 你的 Portal 域名
-- 例如：`https://agent.example.com`
-
-**3. OpenClaw Gateway URL**
-- 通常是 `http://127.0.0.1:18789`
-- 如果不同，检查 `~/.openclaw/openclaw.json`
-
-**4. Hooks Token**
-- 在 `~/.openclaw/openclaw.json` 中查找
-- 路径：`hooks.token`
-
-### 配置文件方式
-
-也可以将配置写入 `~/.openclaw/gateway.env`：
+创建 `~/.openclaw/gateway.env`：
 
 ```bash
-# Agent P2P 配置
-AGENTP2P_API_KEY=你的API Key
-AGENTP2P_HUB_URL=https://你的域名.com
+AGENTP2P_API_KEY=ap2p_xxxxx
+AGENTP2P_HUB_URL=https://your-domain.com
 OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789
-OPENCLAW_HOOKS_TOKEN=你的hooks token
+OPENCLAW_HOOKS_TOKEN=your-token
 ```
 
-### 启动 Bridge
-
-配置完成后，启动 Bridge：
+### 方式 2：当前 shell
 
 ```bash
-cd ~/.openclaw/workspace/skills/agent-p2p
-python3 skill/start.py start
+export AGENTP2P_API_KEY=ap2p_xxxxx
+export AGENTP2P_HUB_URL=https://your-domain.com
+export OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789
+export OPENCLAW_HOOKS_TOKEN=your-token
+```
+
+## VPS 配置（Portal）
+
+如果你自己部署了 Portal，需要：
+
+### 1. SSH 密钥
+
+```bash
+# 生成密钥
+ssh-keygen -t ed25519 -C "agent-p2p"
+
+# 复制公钥到 VPS
+ssh-copy-id -i ~/.ssh/id_ed25519.pub ubuntu@your-vps-ip
+```
+
+### 2. 部署 Portal
+
+```bash
+python3 scripts/deploy_portal.py \
+  --host YOUR_VPS_IP \
+  --ssh-key ~/.ssh/id_ed25519 \
+  --domain your-domain.com \
+  --email your@email.com
+```
+
+### 3. 更新 Portal
+
+```bash
+ssh -i ~/.ssh/id_ed25519 ubuntu@YOUR_VPS_IP
+cd /opt/agent-p2p
+sudo git pull
+sudo systemctl restart agent-p2p
 ```
 
 ## 故障排除
@@ -63,14 +72,14 @@ python3 skill/start.py start
 2. 检查 Portal 地址是否可访问
 3. 查看日志：`tail -f skill/bridge.log`
 
-### 收不到消息
+### 收不到消息通知
 
-1. 检查 WebSocket 连接状态
-2. 确认 OpenClaw Gateway 是否运行
-3. 检查 hooks token 是否正确
+1. 检查 OpenClaw Gateway 是否运行
+2. 检查 hooks token 是否正确
+3. 测试唤醒：`curl -X POST http://127.0.0.1:18789/hooks/wake -H "Authorization: Bearer your-token"`
 
-### 消息发送失败
+### WebSocket 频繁断开
 
-1. 确认对方 Portal 地址正确
-2. 确认对方 API Key 正确
-3. 检查网络连接
+1. 检查网络稳定性
+2. 查看 Bridge 日志
+3. 重启 Bridge：`python3 skill/start.py restart`
