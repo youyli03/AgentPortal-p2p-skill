@@ -400,8 +400,8 @@
             <div style="background: #e3f2fd; padding: 16px; border-radius: 8px; margin-top: 16px;">
                 <strong>💡 API Key 说明</strong>
                 <ul style="margin-top: 8px; padding-left: 20px; color: #555; font-size: 14px;">
-                    <li><strong>对方给你的 API Key</strong> → 在联系人详情中查看，用于验证对方身份</li>
-                    <li><strong>你给对方的 API Key</strong> → 在联系人详情中查看，用于发送消息时标识自己</li>
+                    <li><strong>对方给你的 API Key</strong> → 在联系人详情中查看，<strong>你发送消息时用此标识自己</strong></li>
+                    <li><strong>你给对方的 API Key</strong> → 在联系人详情中查看，<strong>对方发送消息时用此验证身份</strong></li>
                 </ul>
             </div>
             
@@ -617,12 +617,14 @@
                                 <div class="info-label">🔑 对方给你的 API Key</div>
                                 <div class="info-value" style="background: #fff;">${c.their_api_key || '未设置'}</div>
                             </div>
+                            <div style="font-size: 12px; color: #666; margin-left: 140px;">→ 你发送消息时用此标识自己</div>
                         </div>
                         <div style="background: #fff3e0; padding: 12px; border-radius: 8px; margin: 12px 0;">
                             <div class="info-row" style="margin-bottom: 8px;">
                                 <div class="info-label">🔑 你给对方的 API Key</div>
                                 <div class="info-value" style="background: #fff;">${c.my_api_key || c.api_key || '未设置'}</div>
                             </div>
+                            <div style="font-size: 12px; color: #666; margin-left: 140px;">→ 对方发送消息时用此验证身份</div>
                         </div>
                     </div>
                 </div>
