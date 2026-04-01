@@ -1,0 +1,294 @@
+#!/usr/bin/env python3
+"""
+Agent P2P 自动安装脚本
+
+一键完成：
+1. 检查前置条件（DNS、防火墙、SSH）
+2. 部署 Portal 到 VPS
+3. 获取 API Key
+4. 配置并启动 Bridge
+5. 测试连接
+
+用法：
+python3 auto_install.py \
+  --domain agent.example.com \
+  --vps-ip 43.x.x.x \
+  --ssh-key ~/.ssh/agent-p2p \
+  --email user@example.com \
+  --gateway-url http://127.0.0.1:18789 \
+  --hooks-token xxx
+"""
+
+import os
+import sys
+import time
+import subprocess
+import argparse
+from pathlib import Path
+
+
+def run(cmd, check=True):
+    """运行命令"""
+    print(f"$ {cmd}")
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    if check and result.returncode != 0:
+        print(f"错误: {result.stderr}")
+        sys.exit(1)
+    return result
+
+
+def check_dns(domain, vps_ip):
+    """检查域名解析"""
+    print(f"\n[1/6] 检查域名解析: {domain}")
+    
+    for i in range(30):  # 最多等待 5 分钟
+        result = subprocess.run(
+            f"nslookup {domain} | grep -oE '([0-9]{{1,3}}\\.){{3}}[0-9]{{1,3}}' | head -1",
+            shell=True, capture_output=True, text=True
+        )
+        resolved_ip = result.stdout.strip()
+        
+        if resolved_ip == vps_ip:
+            print(f"  ✅ 域名解析正确: {domain} -> {vps_ip}")
+            return True
+        
+        print(f"  ⏳ 等待 DNS 生效... ({i+1}/30)")
+        time.sleep(10)
+    
+    print(f"  ❌ DNS 未生效，请检查域名解析设置")
+    print(f"  期望: {domain} -> {vps_ip}")
+    print(f"  实际: {resolved_ip or '无解析'}")
+    sys.exit(1)
+
+
+def check_ssh(vps_ip, ssh_key):
+    """检查 SSH 连接"""
+    print(f"\n[2/6] 检查 SSH 连接: {vps_ip}")
+    
+    # 检查密钥权限
+    key_path = Path(ssh_key)
+    if key_path.stat().st_mode & 0o077:
+        print(f"  修复密钥权限: {ssh_key}")
+        os.chmod(ssh_key, 0o600)
+    
+    # 测试连接
+    result = subprocess.run(
+        f"ssh -i {ssh_key} -o StrictHostKeyChecking=no -o BatchMode=yes ubuntu@{vps_ip} 'echo OK'",
+        shell=True, capture_output=True, text=True
+    )
+    
+    if result.returncode == 0:
+        print(f"  ✅ SSH 连接成功")
+        return True
+    
+    print(f"  ❌ SSH 连接失败")
+    print(f"  请确保已复制公钥到 VPS:")
+    print(f"  ssh-copy-id -i {ssh_key}.pub ubuntu@{vps_ip}")
+    sys.exit(1)
+
+
+def deploy_portal(vps_ip, ssh_key, domain, email):
+    """部署 Portal"""
+    print(f"\n[3/6] 部署 Portal 到 VPS")
+    
+    script = f"""
+set -e
+cd /opt
+sudo rm -rf agent-p2p
+sudo git clone https://github.com/yananli199307-dev/AgentPortal-p2p-skill.git agent-p2p
+sudo chown -R ubuntu:ubuntu agent-p2p
+cd agent-p2p
+
+# 安装依赖
+sudo apt-get update
+sudo apt-get install -y python3-pip python3-venv nginx certbot python3-certbot-nginx
+
+# 安装 Python 依赖
+pip3 install -r requirements.txt
+
+# 配置环境变量
+export PORTAL_URL="https://{domain}"
+export DATABASE_PATH="./data/portal.db"
+
+# 创建数据目录
+mkdir -p data
+
+# 启动服务
+python3 -c "from src.main import init_db; init_db()"
+
+# 配置 Nginx
+sudo tee /etc/nginx/sites-available/agent-p2p > /dev/null << 'EOF'
+server {{
+    listen 80;
+    server_name {domain};
+    
+    location / {{
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }}
+}}
+EOF
+
+sudo ln -sf /etc/nginx/sites-available/agent-p2p /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl restart nginx
+
+# 申请 SSL
+certbot --nginx -d {domain} --non-interactive --agree-tos --email {email}
+
+# 创建 systemd 服务
+sudo tee /etc/systemd/system/agent-p2p.service > /dev/null << 'EOF'
+[Unit]
+Description=Agent P2P Portal
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/agent-p2p
+Environment=PORTAL_URL=https://{domain}
+Environment=DATABASE_PATH=/opt/agent-p2p/data/portal.db
+ExecStart=/usr/bin/python3 -m uvicorn src.main:app --host 127.0.0.1 --port 8080
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable agent-p2p
+sudo systemctl start agent-p2p
+
+echo "部署完成"
+"""
+    
+    result = subprocess.run(
+        f"ssh -i {ssh_key} ubuntu@{vps_ip} '{script}'",
+        shell=True, capture_output=True, text=True
+    )
+    
+    if result.returncode == 0:
+        print(f"  ✅ Portal 部署成功")
+        return True
+    
+    print(f"  ❌ 部署失败")
+    print(result.stderr)
+    sys.exit(1)
+
+
+def get_api_key(vps_ip, ssh_key):
+    """获取 API Key"""
+    print(f"\n[4/6] 获取 API Key")
+    
+    result = subprocess.run(
+        f"ssh -i {ssh_key} ubuntu@{vps_ip} 'sqlite3 /opt/agent-p2p/data/portal.db \"SELECT key_id FROM api_keys LIMIT 1\"'",
+        shell=True, capture_output=True, text=True
+    )
+    
+    api_key = result.stdout.strip()
+    if api_key:
+        print(f"  ✅ 获取 API Key: {api_key[:20]}...")
+        return api_key
+    
+    print(f"  ❌ 未找到 API Key")
+    sys.exit(1)
+
+
+def setup_bridge(domain, api_key, gateway_url, hooks_token):
+    """配置并启动 Bridge"""
+    print(f"\n[5/6] 配置 Bridge")
+    
+    # 写入环境变量
+    env_file = Path.home() / ".openclaw" / "gateway.env"
+    env_file.parent.mkdir(parents=True, exist_ok=True)
+    
+    env_content = f"""# Agent P2P 配置
+AGENTP2P_API_KEY={api_key}
+AGENTP2P_HUB_URL=https://{domain}
+OPENCLAW_GATEWAY_URL={gateway_url}
+OPENCLAW_HOOKS_TOKEN={hooks_token}
+"""
+    
+    env_file.write_text(env_content)
+    print(f"  ✅ 写入配置: {env_file}")
+    
+    # 启动 Bridge
+    skill_dir = Path.home() / ".openclaw" / "workspace" / "skills" / "agent-p2p"
+    if skill_dir.exists():
+        subprocess.run(
+            f"cd {skill_dir} && python3 skill/start.py restart",
+            shell=True
+        )
+        print(f"  ✅ Bridge 启动成功")
+    else:
+        print(f"  ⚠️ Skill 未安装，跳过启动 Bridge")
+
+
+def test_connection(domain, api_key, gateway_url, hooks_token):
+    """测试连接"""
+    print(f"\n[6/6] 测试连接")
+    
+    # 测试 Portal
+    result = subprocess.run(
+        f"curl -sk https://{domain}/api/portal/info",
+        shell=True, capture_output=True, text=True
+    )
+    if result.returncode == 0:
+        print(f"  ✅ Portal 可访问")
+    else:
+        print(f"  ❌ Portal 访问失败")
+        return False
+    
+    # 测试 OpenClaw
+    result = subprocess.run(
+        f"curl -s -X POST {gateway_url}/hooks/wake -H 'Authorization: Bearer {hooks_token}' -d '{{\"text\":\"测试\"}}'",
+        shell=True, capture_output=True, text=True
+    )
+    if result.returncode == 0:
+        print(f"  ✅ OpenClaw 可唤醒")
+    else:
+        print(f"  ❌ OpenClaw 唤醒失败")
+        return False
+    
+    return True
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Agent P2P 自动安装')
+    parser.add_argument('--domain', required=True, help='域名')
+    parser.add_argument('--vps-ip', required=True, help='VPS IP')
+    parser.add_argument('--ssh-key', required=True, help='SSH 私钥路径')
+    parser.add_argument('--email', required=True, help='邮箱')
+    parser.add_argument('--gateway-url', default='http://127.0.0.1:18789', help='Gateway URL')
+    parser.add_argument('--hooks-token', required=True, help='Hooks Token')
+    
+    args = parser.parse_args()
+    
+    print("=" * 60)
+    print("Agent P2P 自动安装")
+    print("=" * 60)
+    
+    # 执行安装步骤
+    check_dns(args.domain, args.vps_ip)
+    check_ssh(args.vps_ip, args.ssh_key)
+    deploy_portal(args.vps_ip, args.ssh_key, args.domain, args.email)
+    api_key = get_api_key(args.vps_ip, args.ssh_key)
+    setup_bridge(args.domain, api_key, args.gateway_url, args.hooks_token)
+    
+    if test_connection(args.domain, api_key, args.gateway_url, args.hooks_token):
+        print("\n" + "=" * 60)
+        print("✅ 安装完成！")
+        print("=" * 60)
+        print(f"\nPortal: https://{args.domain}")
+        print(f"管理后台: https://{args.domain}/static/admin.html")
+        print(f"API Key: {api_key[:20]}...")
+        print(f"\n所有组件已连接并测试通过！")
+    else:
+        print("\n⚠️ 安装完成，但连接测试未通过，请检查日志")
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()
