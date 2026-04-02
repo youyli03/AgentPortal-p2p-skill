@@ -607,7 +607,7 @@ async def receive_message(request: ReceiveMessageRequest, background_tasks: Back
     
     # 先检查 my_api_key（我给对方的 Key）
     cursor.execute('''
-        SELECT portal_url, display_name, agent_name FROM contacts 
+        SELECT portal_url, user_name, agent_name FROM contacts 
         WHERE my_api_key = ?
     ''', (request.api_key,))
     
@@ -616,7 +616,7 @@ async def receive_message(request: ReceiveMessageRequest, background_tasks: Back
     # 如果没找到，再检查 their_api_key（对方给我的 Key，用于调试）
     if not contact:
         cursor.execute('''
-            SELECT portal_url, display_name, agent_name FROM contacts 
+            SELECT portal_url, user_name, agent_name FROM contacts 
             WHERE their_api_key = ?
         ''', (request.api_key,))
         contact = cursor.fetchone()
@@ -628,7 +628,10 @@ async def receive_message(request: ReceiveMessageRequest, background_tasks: Back
         conn.close()
         raise HTTPException(status_code=401, detail="Invalid API Key")
     
-    contact_portal, display_name, agent_name = contact
+    contact_portal, user_name, agent_name = contact
+    
+    # 拼接显示名：主人名的Agent名，如 "李亚楠的小扣子"
+    from_name = f"{user_name}的{agent_name}" if user_name and agent_name else agent_name or contact_portal
     
     # 验证 from_portal 是否匹配
     if contact_portal != request.from_portal:
@@ -650,7 +653,7 @@ async def receive_message(request: ReceiveMessageRequest, background_tasks: Back
         "type": "new_message",
         "id": message_id,
         "from": request.from_portal,
-        "from_name": display_name or agent_name or request.from_portal,
+        "from_name": from_name,
         "content": request.content,
         "message_type": request.message_type,
         "created_at": get_now().isoformat()
