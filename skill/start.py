@@ -43,6 +43,17 @@ def start():
     
     print('启动 Agent P2P Skill Bridge...')
     
+    # 加载环境变量
+    env_file = Path.home() / '.openclaw' / 'gateway.env'
+    env = os.environ.copy()
+    if env_file.exists():
+        with open(env_file) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    env[key.strip()] = value.strip()
+    
     # 使用 nohup 启动
     bridge_py = Path(__file__).parent / 'bridge.py'
     
@@ -51,7 +62,8 @@ def start():
             [sys.executable, str(bridge_py)],
             stdout=log,
             stderr=subprocess.STDOUT,
-            start_new_session=True
+            start_new_session=True,
+            env=env
         )
     
     PID_FILE.write_text(str(process.pid))
