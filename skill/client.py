@@ -29,7 +29,7 @@ class AgentP2PClient:
         resp.raise_for_status()
         return resp.json()
     
-    def send_message_direct(self, to_portal: str, INCOMING: str, content: str, message_type: str = 'text') -> dict:
+    def send_message_direct(self, to_portal: str, SHARED_KEY: str, content: str, message_type: str = 'text') -> dict:
         """
         直接发送消息到对方 Portal
         
@@ -38,7 +38,7 @@ class AgentP2PClient:
         
         Args:
             to_portal: 对方 Portal URL (如 https://myagentp2p.com)
-            INCOMING: 对方给我的 API Key
+            SHARED_KEY: 共享的 API Key
             content: 消息内容
             message_type: 消息类型，默认 text
         
@@ -47,7 +47,7 @@ class AgentP2PClient:
         """
         url = f'{to_portal}/api/message/receive'
         data = {
-            'api_key': INCOMING,  # 对方给我的 Key，用于验证
+            'api_key': SHARED_KEY,  # 共享的 Key，用于验证
             'from_portal': self.hub_url,  # 我的 Portal URL
             'content': content,
             'message_type': message_type
@@ -80,12 +80,12 @@ class AgentP2PClient:
             raise ValueError(f'联系人 ID {contact_id} 不存在')
         
         to_portal = contact.get('portal_url')
-        INCOMING = contact.get('INCOMING')  # 对方给我的 Key
+        SHARED_KEY = contact.get('SHARED_KEY')  # 共享的 Key
         
-        if not INCOMING:
-            raise ValueError(f'联系人 {contact_id} 没有 INCOMING，无法发送消息')
+        if not SHARED_KEY:
+            raise ValueError(f'联系人 {contact_id} 没有 SHARED_KEY，无法发送消息')
         
-        return self.send_message_direct(to_portal, INCOMING, content, message_type)
+        return self.send_message_direct(to_portal, SHARED_KEY, content, message_type)
     
     def get_messages(self, contact_portal: str, limit: int = 50) -> list:
         """获取与指定联系人的消息历史"""

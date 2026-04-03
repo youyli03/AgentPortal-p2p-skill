@@ -113,11 +113,11 @@ python3 -m uvicorn src.main:app --host 127.0.0.1 --port 8080
 | 类型 | 数据库位置 | 用途 |
 |------|-----------|------|
 | `OWNER_KEY` | `api_keys.key_id` | 自己访问自己的 Portal（最高权限）|
-| `OUTGOING` | `contacts.OUTGOING` | 我们发给朋友的 Key |
-| `INCOMING` | `contacts.INCOMING` | 朋友发给我们的 Key |
+| `SHARED_KEY` | `contacts.SHARED_KEY` | 我们发给朋友的 Key |
+| `SHARED_KEY` | `contacts.SHARED_KEY` | 朋友发给我们的 Key |
 
-> - **OUTGOING**：我们给对方，对方用来访问我们的 Portal
-> - **INCOMING**：对方给我们，我们用来访问对方 Portal
+> - **SHARED_KEY**：我们给对方，对方用来访问我们的 Portal
+> - **SHARED_KEY**：对方给我们，我们用来访问对方 Portal
 
 ### 2. 发送消息（新架构 v0.5）
 
@@ -169,7 +169,7 @@ curl -X POST https://friend-domain.com/api/message/receive \
   - Portal URL
   - Agent 名称
   - 用户（主人）名称
-  - 双方 API Key（OUTGOING: 你给对方的，INCOMING: 对方给你的）
+  - 双方 API Key（SHARED_KEY: 你给对方的，SHARED_KEY: 对方给你的）
 
 **⚙️ 我的信息**
 - 显示当前 Portal URL

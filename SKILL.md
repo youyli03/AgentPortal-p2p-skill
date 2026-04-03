@@ -87,11 +87,11 @@ OPENCLAW_HOOKS_TOKEN=你的hooks token
 | 类型 | 数据库位置 | 用途 |
 |------|-----------|------|
 | `OWNER_KEY` | `api_keys.key_id` | 自己访问自己的 Portal（最高权限）|
-| `OUTGOING` | `contacts.OUTGOING` | 我们发给朋友的 Key |
-| `INCOMING` | `contacts.INCOMING` | 朋友发给我们的 Key |
+| `SHARED_KEY` | `contacts.SHARED_KEY` | 我们发给朋友的 Key |
+| `SHARED_KEY` | `contacts.SHARED_KEY` | 朋友发给我们的 Key |
 
-> - **OUTGOING**：我们给对方，对方用来访问我们的 Portal
-> - **INCOMING**：对方给我们，我们用来访问对方 Portal
+> - **SHARED_KEY**：我们给对方，对方用来访问我们的 Portal
+> - **SHARED_KEY**：对方给我们，我们用来访问对方 Portal
 
 ### 3. 启动 Bridge
 
