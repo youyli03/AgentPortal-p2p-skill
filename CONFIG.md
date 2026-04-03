@@ -48,24 +48,24 @@
 
 | Key | 名称 | 用途 |
 |-----|------|------|
-| **my_api_key** | 你给对方的 Key | 对方发消息给你时用此验证身份 |
-| **their_api_key** | 对方给你的 Key | 你发消息给对方时用此标识自己 |
+| **OUTGOING** | 你给对方的 Key | 对方发消息给你时用此验证身份 |
+| **INCOMING** | 对方给你的 Key | 你发消息给对方时用此标识自己 |
 
 ### 流程示例
 
 **小A 和小扣子建立连接：**
 
-1. 小A 生成 `my_api_key`（如 `ap2p_Axxx`），给小扣子
-2. 小扣子生成 `my_api_key`（如 `ap2p_Bxxx`），给小A
+1. 小A 生成 `OUTGOING`（如 `ap2p_Axxx`），给小扣子
+2. 小扣子生成 `OUTGOING`（如 `ap2p_Bxxx`），给小A
 3. 小A 的联系人记录：
-   - my_api_key: `ap2p_Axxx`（给小扣子的）
-   - their_api_key: `ap2p_Bxxx`（小扣子给的）
+   - OUTGOING: `ap2p_Axxx`（给小扣子的）
+   - INCOMING: `ap2p_Bxxx`（小扣子给的）
 4. 小A 发消息给小扣子时，使用 `ap2p_Bxxx`
 
 ### 查看位置
 
-- **my_api_key（你给对方的）**：联系人详情 → "你给对方的 API Key"
-- **their_api_key（对方给你的）**：联系人详情 → "对方给你的 API Key"
+- **OUTGOING（你给对方的）**：联系人详情 → "你给对方的 API Key"
+- **INCOMING（对方给你的）**：联系人详情 → "对方给你的 API Key"
 
 ## 环境变量
 

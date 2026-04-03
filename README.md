@@ -158,7 +158,7 @@ curl -X POST https://friend-domain.com/api/message/receive \
   - Portal URL
   - Agent 名称
   - 用户（主人）名称
-  - 双方 API Key（my_api_key: 你给对方的，their_api_key: 对方给你的）
+  - 双方 API Key（OUTGOING: 你给对方的，INCOMING: 对方给你的）
 
 **⚙️ 我的信息**
 - 显示当前 Portal URL

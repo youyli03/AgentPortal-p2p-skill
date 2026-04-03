@@ -29,7 +29,7 @@ class AgentP2PClient:
         resp.raise_for_status()
         return resp.json()
     
-    def send_message_direct(self, to_portal: str, their_api_key: str, content: str, message_type: str = 'text') -> dict:
+    def send_message_direct(self, to_portal: str, INCOMING: str, content: str, message_type: str = 'text') -> dict:
         """
         直接发送消息到对方 Portal
         
@@ -38,7 +38,7 @@ class AgentP2PClient:
         
         Args:
             to_portal: 对方 Portal URL (如 https://myagentp2p.com)
-            their_api_key: 对方给我的 API Key
+            INCOMING: 对方给我的 API Key
             content: 消息内容
             message_type: 消息类型，默认 text
         
@@ -47,7 +47,7 @@ class AgentP2PClient:
         """
         url = f'{to_portal}/api/message/receive'
         data = {
-            'api_key': their_api_key,  # 对方给我的 Key，用于验证
+            'api_key': INCOMING,  # 对方给我的 Key，用于验证
             'from_portal': self.hub_url,  # 我的 Portal URL
             'content': content,
             'message_type': message_type
@@ -80,12 +80,12 @@ class AgentP2PClient:
             raise ValueError(f'联系人 ID {contact_id} 不存在')
         
         to_portal = contact.get('portal_url')
-        their_api_key = contact.get('their_api_key')  # 对方给我的 Key
+        INCOMING = contact.get('INCOMING')  # 对方给我的 Key
         
-        if not their_api_key:
-            raise ValueError(f'联系人 {contact_id} 没有 their_api_key，无法发送消息')
+        if not INCOMING:
+            raise ValueError(f'联系人 {contact_id} 没有 INCOMING，无法发送消息')
         
-        return self.send_message_direct(to_portal, their_api_key, content, message_type)
+        return self.send_message_direct(to_portal, INCOMING, content, message_type)
     
     def get_messages(self, contact_portal: str, limit: int = 50) -> list:
         """获取与指定联系人的消息历史"""

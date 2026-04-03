@@ -64,8 +64,8 @@ def init_db():
             display_name TEXT,
             agent_name TEXT,
             user_name TEXT,
-            my_api_key TEXT NOT NULL,  -- 我给对方的API Key，对方用此验证我的身份
-            their_api_key TEXT,        -- 对方给我的API Key，我用此验证对方身份
+            OUTGOING TEXT NOT NULL,  -- 我给对方的API Key，对方用此验证我的身份
+            INCOMING TEXT,        -- 对方给我的API Key，我用此验证对方身份
             is_verified BOOLEAN DEFAULT TRUE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             expires_at TIMESTAMP
@@ -133,7 +133,7 @@ class ApiKeyCreateRequest(BaseModel):
 
 class ApiKeyExchangeRequest(BaseModel):
     portal_url: str
-    their_api_key: str
+    INCOMING: str
 
 class ReceiveMessageRequest(BaseModel):
     """接收来自其他 Agent 的消息"""
@@ -152,8 +152,8 @@ def verify_api_key(api_key: str) -> Optional[str]:
     
     检查三个地方：
     1. api_keys 表 - 我自己生成的 Key（用于 WebSocket 连接）
-    2. contacts.my_api_key - 我给对方的 Key（对方用此 Key 访问他有自己的 Portal）
-    3. contacts.their_api_key - 对方给我的 Key（用于验证对方身份）
+    2. contacts.OUTGOING - 我给对方的 Key（对方用此 Key 访问他有自己的 Portal）
+    3. contacts.INCOMING - 对方给我的 Key（用于验证对方身份）
     """
     conn = None
     try:
@@ -173,17 +173,17 @@ def verify_api_key(api_key: str) -> Optional[str]:
         # 2. 检查是否是我的 Key（我给对方的 Key）
         cursor.execute('''
             SELECT portal_url FROM contacts 
-            WHERE my_api_key = ?
+            WHERE OUTGOING = ?
         ''', (api_key,))
         
         result = cursor.fetchone()
         if result:
             return result[0]
         
-        # 3. 检查是否是某个联系人给我的 Key（their_api_key）
+        # 3. 检查是否是某个联系人给我的 Key（INCOMING）
         cursor.execute('''
             SELECT portal_url FROM contacts 
-            WHERE their_api_key = ?
+            WHERE INCOMING = ?
         ''', (api_key,))
         
         result = cursor.fetchone()
@@ -346,20 +346,20 @@ async def approve_guest_message(message_id: int, request: Request):
         raise HTTPException(status_code=404, detail="Message not found")
     
     # 生成 API Key
-    my_api_key = generate_api_key()
+    OUTGOING = generate_api_key()
     
     # 保存联系人
     cursor.execute('''
         INSERT OR REPLACE INTO contacts 
-        (portal_url, display_name, agent_name, user_name, my_api_key, their_api_key, is_verified, created_at)
+        (portal_url, display_name, agent_name, user_name, OUTGOING, INCOMING, is_verified, created_at)
         VALUES (?, ?, ?, ?, ?, ?, TRUE, ?)
     ''', (
         portal_url,
         f"{agent_name} ({user_name})",
         agent_name,
         user_name,
-        my_api_key,
-        None,  # their_api_key 暂时为空，等待对方提供
+        OUTGOING,
+        None,  # INCOMING 暂时为空，等待对方提供
         get_now().strftime('%Y-%m-%d %H:%M:%S')
     ))
     
@@ -376,8 +376,8 @@ async def approve_guest_message(message_id: int, request: Request):
     return {
         "status": "approved",
         "message_id": message_id,
-        "api_key": my_api_key,
-        "message": f"已添加联系人，请将此 API Key 发送给对方: {my_api_key}"
+        "api_key": OUTGOING,
+        "message": f"已添加联系人，请将此 API Key 发送给对方: {OUTGOING}"
     }
 
 # ========== API Key 管理接口 ==========
@@ -459,27 +459,27 @@ async def exchange_api_key(request: ApiKeyExchangeRequest):
     cursor = conn.cursor()
     
     # 生成我的 API Key 给对方
-    my_api_key = generate_api_key()
+    OUTGOING = generate_api_key()
     
     # 保存 API Key 到数据库
     cursor.execute('''
         INSERT INTO api_keys (key_id, portal_url, agent_name, created_at, is_active)
         VALUES (?, ?, ?, ?, TRUE)
-    ''', (my_api_key, request.portal_url, "friend", get_now().strftime('%Y-%m-%d %H:%M:%S')))
+    ''', (OUTGOING, request.portal_url, "friend", get_now().strftime('%Y-%m-%d %H:%M:%S')))
     
     # 保存联系人关系
     cursor.execute('''
         INSERT OR REPLACE INTO contacts 
-        (portal_url, api_key, their_api_key, is_verified, created_at)
+        (portal_url, api_key, INCOMING, is_verified, created_at)
         VALUES (?, ?, ?, TRUE, ?)
-    ''', (request.portal_url, my_api_key, request.their_api_key, get_now().strftime('%Y-%m-%d %H:%M:%S')))
+    ''', (request.portal_url, OUTGOING, request.INCOMING, get_now().strftime('%Y-%m-%d %H:%M:%S')))
     
     conn.commit()
     conn.close()
     
     return {
         "status": "exchanged",
-        "api_key": my_api_key,
+        "api_key": OUTGOING,
         "message": "API Key 交换成功"
     }
 
@@ -569,7 +569,7 @@ async def send_message(request: SendMessageRequest, background_tasks: Background
     
     # 获取联系人信息
     cursor.execute('''
-        SELECT portal_url, my_api_key FROM contacts WHERE id = ?
+        SELECT portal_url, OUTGOING FROM contacts WHERE id = ?
     ''', (request.contact_id,))
     contact = cursor.fetchone()
     
@@ -577,13 +577,13 @@ async def send_message(request: SendMessageRequest, background_tasks: Background
         conn.close()
         raise HTTPException(status_code=404, detail="Contact not found")
     
-    to_portal, my_api_key = contact
+    to_portal, OUTGOING = contact
     
     # 保存消息（使用我给对方的API Key作为发送方标识）
     cursor.execute('''
         INSERT INTO messages (from_portal, to_portal, content, message_type, sender_api_key, created_at)
         VALUES (?, ?, ?, ?, ?, ?)
-    ''', (my_portal, to_portal, request.content, request.message_type, my_api_key, get_now().strftime('%Y-%m-%d %H:%M:%S')))
+    ''', (my_portal, to_portal, request.content, request.message_type, OUTGOING, get_now().strftime('%Y-%m-%d %H:%M:%S')))
     
     message_id = cursor.lastrowid
     conn.commit()
@@ -594,7 +594,7 @@ async def send_message(request: SendMessageRequest, background_tasks: Background
         "type": "message",
         "id": message_id,
         "from": my_portal,
-        "api_key": my_api_key,  # 让对方可以用此验证我的身份
+        "api_key": OUTGOING,  # 让对方可以用此验证我的身份
         "content": request.content,
         "message_type": request.message_type,
         "created_at": get_now().isoformat()
@@ -619,23 +619,23 @@ async def receive_message(request: ReceiveMessageRequest, background_tasks: Back
         conn = sqlite3.connect(DATABASE_PATH)
         cursor = conn.cursor()
         
-        # 先检查 my_api_key（我给对方的 Key）
+        # 先检查 OUTGOING（我给对方的 Key）
         cursor.execute('''
             SELECT portal_url, user_name, agent_name FROM contacts 
-            WHERE my_api_key = ?
+            WHERE OUTGOING = ?
         ''', (request.api_key,))
         
         contact = cursor.fetchone()
         
-        # 如果没找到，再检查 their_api_key（对方给我的 Key，用于调试）
+        # 如果没找到，再检查 INCOMING（对方给我的 Key，用于调试）
         if not contact:
             cursor.execute('''
                 SELECT portal_url, user_name, agent_name FROM contacts 
-                WHERE their_api_key = ?
+                WHERE INCOMING = ?
             ''', (request.api_key,))
             contact = cursor.fetchone()
             if contact:
-                raise HTTPException(status_code=401, detail="API Key mismatch: you used their_api_key, but should use my_api_key")
+                raise HTTPException(status_code=401, detail="API Key mismatch: you used INCOMING, but should use OUTGOING")
         
         if not contact:
             raise HTTPException(status_code=401, detail="Invalid API Key")
@@ -718,7 +718,7 @@ async def get_contacts():
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT id, portal_url, display_name, agent_name, user_name, my_api_key, their_api_key, is_verified, created_at
+        SELECT id, portal_url, display_name, agent_name, user_name, OUTGOING, INCOMING, is_verified, created_at
         FROM contacts
         ORDER BY created_at DESC
     ''')
@@ -728,7 +728,7 @@ async def get_contacts():
     # 获取每个联系人的未读消息数
     result = []
     for c in contacts:
-        contact_id, portal_url, display_name, agent_name, user_name, my_api_key, their_api_key, is_verified, created_at = c
+        contact_id, portal_url, display_name, agent_name, user_name, OUTGOING, INCOMING, is_verified, created_at = c
         
         cursor.execute('''
             SELECT COUNT(*) FROM messages 
@@ -743,8 +743,8 @@ async def get_contacts():
             "display_name": display_name,
             "agent_name": agent_name,
             "user_name": user_name,
-            "my_api_key": my_api_key,  # 我给对方的API Key
-            "their_api_key": their_api_key,  # 对方给我的API Key
+            "OUTGOING": OUTGOING,  # 我给对方的API Key
+            "INCOMING": INCOMING,  # 对方给我的API Key
             "is_verified": is_verified,
             "created_at": created_at,
             "unread_count": unread_count
@@ -759,8 +759,8 @@ class CreateContactRequest(BaseModel):
     display_name: Optional[str] = None
     agent_name: Optional[str] = None
     user_name: Optional[str] = None
-    my_api_key: Optional[str] = None  # 我给对方的API Key
-    their_api_key: Optional[str] = None  # 对方给我的API Key
+    OUTGOING: Optional[str] = None  # 我给对方的API Key
+    INCOMING: Optional[str] = None  # 对方给我的API Key
 
 @app.post("/api/contacts")
 async def create_contact(request: CreateContactRequest):
@@ -770,15 +770,15 @@ async def create_contact(request: CreateContactRequest):
     
     cursor.execute('''
         INSERT OR REPLACE INTO contacts 
-        (portal_url, display_name, agent_name, user_name, my_api_key, their_api_key, is_verified, created_at)
+        (portal_url, display_name, agent_name, user_name, OUTGOING, INCOMING, is_verified, created_at)
         VALUES (?, ?, ?, ?, ?, ?, TRUE, ?)
     ''', (
         request.portal_url,
         request.display_name,
         request.agent_name,
         request.user_name,
-        request.my_api_key or generate_api_key(),  # 自动生成我给对方的Key
-        request.their_api_key,
+        request.OUTGOING or generate_api_key(),  # 自动生成我给对方的Key
+        request.INCOMING,
         get_now().strftime('%Y-%m-%d %H:%M:%S')
     ))
     
@@ -819,14 +819,14 @@ async def update_contact(contact_id: int, request: CreateContactRequest):
     # 更新字段
     cursor.execute('''
         UPDATE contacts 
-        SET display_name = ?, agent_name = ?, user_name = ?, my_api_key = ?, their_api_key = ?
+        SET display_name = ?, agent_name = ?, user_name = ?, OUTGOING = ?, INCOMING = ?
         WHERE id = ?
     ''', (
         request.display_name,
         request.agent_name,
         request.user_name,
-        request.my_api_key,
-        request.their_api_key,
+        request.OUTGOING,
+        request.INCOMING,
         contact_id
     ))
     
