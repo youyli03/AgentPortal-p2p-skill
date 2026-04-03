@@ -11,6 +11,7 @@ import json
 import signal
 import time
 from pathlib import Path
+import psutil
 
 PID_FILE = Path(__file__).parent / 'bridge.pid'
 LOG_FILE = Path(__file__).parent / 'bridge.log'
@@ -19,9 +20,15 @@ def get_pid():
     """获取进程 ID"""
     if PID_FILE.exists():
         try:
-            return int(PID_FILE.read_text().strip())
+            pid = int(PID_FILE.read_text().strip())
+            # 检查进程是否真的在运行
+            if pid and is_running(pid):
+                return pid
+            else:
+                # PID文件存在但进程不在了，清理掉
+                PID_FILE.unlink(missing_ok=True)
         except:
-            return None
+            pass
     return None
 
 def is_running(pid):
@@ -34,8 +41,28 @@ def is_running(pid):
     except (OSError, ProcessLookupError):
         return False
 
+def check_duplicate():
+    """检查是否有重复的 bridge 进程"""
+    import psutil
+    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        try:
+            cmdline = proc.info.get('cmdline') or []
+            cmdline_str = ' '.join(cmdline)
+            if 'bridge.py' in cmdline_str and 'skill' in cmdline_str:
+                return proc.info['pid']
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    return None
+
 def start():
     """启动 bridge"""
+    # 检查是否有重复进程（通过进程名）
+    dup_pid = check_duplicate()
+    if dup_pid:
+        print(f'⚠️ 发现重复的 Bridge 进程 (PID: {dup_pid})')
+        print(f'请先停止: python3 skill/start.py stop')
+        return
+    
     pid = get_pid()
     if pid and is_running(pid):
         print(f'Bridge 已在运行 (PID: {pid})')
