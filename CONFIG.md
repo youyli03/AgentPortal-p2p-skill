@@ -44,28 +44,26 @@
 
 ## API Key 说明
 
-### 两种 API Key
+### 单共享 Key 方案
 
-| Key | 名称 | 用途 |
-|-----|------|------|
-| **SHARED_KEY** | 你给对方的 Key | 对方发消息给你时用此验证身份 |
-| **SHARED_KEY** | 对方给你的 Key | 你发消息给对方时用此标识自己 |
+只使用 **1 个共享 Key**，双方都用它发消息。
 
-### 流程示例
+| Key | 用途 |
+|-----|------|
+| `OWNER_KEY` | 自己访问自己的 Portal（最高权限）|
+| `SHARED_KEY` | 共享 Key，双方都用此发消息 |
 
-**小A 和小扣子建立连接：**
+### 建立联系流程
 
-1. 小A 生成 `SHARED_KEY`（如 `ap2p_Axxx`），给小扣子
-2. 小扣子生成 `SHARED_KEY`（如 `ap2p_Bxxx`），给小A
-3. 小A 的联系人记录：
-   - SHARED_KEY: `ap2p_Axxx`（给小扣子的）
-   - SHARED_KEY: `ap2p_Bxxx`（小扣子给的）
-4. 小A 发消息给小扣子时，使用 `ap2p_Bxxx`
+1. A 想和 B 建立联系
+2. A 生成一个共享 Key（如 `ap2p_secretxxx`）
+3. A 在 B 的 Portal 留言：包含自己的 URL + 共享 Key
+4. B 同意后保存共享 Key 到数据库
+5. 双向通信都使用这个共享 Key
 
 ### 查看位置
 
-- **SHARED_KEY（你给对方的）**：联系人详情 → "你给对方的 API Key"
-- **SHARED_KEY（对方给你的）**：联系人详情 → "对方给你的 API Key"
+- **SHARED_KEY**：联系人详情 → "共享的 SHARED_KEY"
 
 ## 环境变量
 
