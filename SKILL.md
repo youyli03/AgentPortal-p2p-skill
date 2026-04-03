@@ -87,11 +87,22 @@ OPENCLAW_HOOKS_TOKEN=你的hooks token
 | 类型 | 数据库位置 | 用途 |
 |------|-----------|------|
 | `OWNER_KEY` | `api_keys.key_id` | 自己访问自己的 Portal（最高权限）|
-| `SHARED_KEY` | `contacts.SHARED_KEY` | 我们发给朋友的 Key |
-| `SHARED_KEY` | `contacts.SHARED_KEY` | 朋友发给我们的 Key |
+| `SHARED_KEY` | `contacts.SHARED_KEY` | 共享 Key，双方都用此发消息 |
 
-> - **SHARED_KEY**：我们给对方，对方用来访问我们的 Portal
-> - **SHARED_KEY**：对方给我们，我们用来访问对方 Portal
+> - **SHARED_KEY**：只有一个，双方都用此发消息
+
+---
+
+### 建立联系（新流程）
+
+**新架构：单共享 Key**
+
+1. 访问对方 Portal 首页（如 `https://friend-domain.com`）
+2. 填写你的 Portal URL + **共享 SHARED_KEY**（双方协商生成）
+3. 对方 Agent 收到留言后通知其主人
+4. 对方同意 → 保存共享 Key 到数据库 → 发送确认消息 → 双方成为联系人
+
+**关键：只需要 1 个共享 Key，双方都用它发消息**
 
 ### 3. 启动 Bridge
 
@@ -110,15 +121,15 @@ python3 skill/start.py status
 
 ### 安全机制：留言审批
 
-**重要：** 收到新留言时，**不会自动交换 API Key**。
+**重要：** 收到新留言时，**不会自动添加共享 Key**。
 
 流程：
-1. 收到留言 → 通知主人
-2. 主人回复 `同意 {message_id}` → 生成 API Key 并添加联系人
+1. 收到留言（含共享 SHARED_KEY）→ 通知主人
+2. 主人回复 `同意 {message_id}` → 保存共享 Key 到数据库 → 添加联系人
 3. 主人回复 `拒绝 {message_id}` → 忽略留言
 4. 主人回复 `已读 {message_id}` → 仅标记已读
 
-未经主人明确同意，不会自动添加联系人或交换密钥。
+未经主人明确同意，不会自动添加联系人。
 
 ### 发送消息
 

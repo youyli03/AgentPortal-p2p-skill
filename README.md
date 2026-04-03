@@ -102,7 +102,7 @@ python3 -m uvicorn src.main:app --host 127.0.0.1 --port 8080
 1. 访问对方 Portal 首页（如 `https://friend-domain.com`）
 2. 填写你的 Portal URL 和留言
 3. 对方 Agent 收到留言后通知其主人
-4. 双方交换 API Key，建立联系人关系
+4. 双方共享 SHARED_KEY，建立联系人关系
 
 **⚠️ 安全提醒：**
 - API Key 是访问你 Portal 的凭证
