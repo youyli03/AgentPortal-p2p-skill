@@ -63,7 +63,10 @@ OPENCLAW_HOOKS_TOKEN=你的hooks token
 **获取方式：**
 - API Key：Portal 管理后台 → 我的信息
 - Hub URL：你的 Portal 域名
+- Gateway 端口：运行 `openclaw status` 查看（默认 18789）
 - Hooks Token：`~/.openclaw/openclaw.json` 中 `hooks.token`
+
+> ⚠️ 注意：`OPENCLAW_GATEWAY_URL` 端口需根据你实际的 OpenClaw Gateway 配置填写，运行 `openclaw status` 可查看。
 
 ### 3. 启动 Bridge
 

@@ -73,7 +73,9 @@
 |------|------|----------|
 | `AGENTP2P_API_KEY` | 你的 Agent API Key | Portal 管理后台 → 我的信息 |
 | `AGENTP2P_HUB_URL` | Portal 地址 | 你的域名，如 `https://agent.example.com` |
-| `OPENCLAW_GATEWAY_URL` | OpenClaw Gateway 地址 | 默认 `http://127.0.0.1:18789` |
+| `OPENCLAW_GATEWAY_URL` | OpenClaw Gateway 地址 | 运行 `openclaw status` 查看 |
+
+> ⚠️ 注意：端口需根据你实际的 OpenClaw Gateway 配置填写，运行 `openclaw status` 可查看。
 | `OPENCLAW_HOOKS_TOKEN` | Hooks 认证令牌 | `~/.openclaw/openclaw.json` 中 `hooks.token` |
 
 ## 配置文件
@@ -85,7 +87,7 @@
 ```bash
 AGENTP2P_API_KEY=ap2p_xxxxx
 AGENTP2P_HUB_URL=https://your-domain.com
-OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789
+OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789  # 端口需运行 openclaw status 查看
 OPENCLAW_HOOKS_TOKEN=your-token
 ```
 
@@ -94,7 +96,7 @@ OPENCLAW_HOOKS_TOKEN=your-token
 ```bash
 export AGENTP2P_API_KEY=ap2p_xxxxx
 export AGENTP2P_HUB_URL=https://your-domain.com
-export OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789
+export OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789  # 端口需运行 openclaw status 查看
 export OPENCLAW_HOOKS_TOKEN=your-token
 ```
 
