@@ -557,7 +557,7 @@
             
             list.innerHTML = contacts.map(c => `
                 <div class="contact-item ${selectedContact?.id === c.id ? 'active' : ''}" onclick="selectContact(${c.id})">
-                    <div class="contact-name">${c.display_name || '未命名'}</div>
+                    <div class="contact-name">${c.user_name ? c.user_name + '的' + c.agent_name : c.agent_name || '未命名'}</div>
                     <div class="contact-url">${c.portal_url}</div>
                     <div class="contact-meta">
                         <span>${c.agent_name || ''} ${c.user_name || ''}</span>
@@ -587,14 +587,14 @@
             const c = selectedContact;
             document.getElementById('contact-detail-area').innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                    <h3 style="font-size: 16px; margin: 0;">💬 与 ${c.display_name || c.agent_name || '联系人'} 的消息</h3>
+                    <h3 style="font-size: 16px; margin: 0;">💬 与 ${c.user_name || c.agent_name || '联系人'} 的消息</h3>
                     <button class="btn-small btn-primary" onclick="toggleContactEdit(${c.id})">联系人详情</button>
                 </div>
                 <div id="contact-edit-form" class="hidden" style="margin-bottom: 16px;">
                     <div class="contact-detail">
                         <div class="info-row">
                             <div class="info-label">显示名称</div>
-                            <div class="info-value">${c.display_name || '-'}</div>
+                            <div class="info-value">${c.user_name || '-'}</div>
                         </div>
                         <div class="info-row">
                             <div class="info-label">Portal URL</div>
@@ -679,7 +679,7 @@
             const c = contacts.find(x => x.id === id);
             if (!c) return;
             document.getElementById('edit-id').value = c.id;
-            document.getElementById('edit-name').value = c.display_name || '';
+            document.getElementById('edit-name').value = c.user_name || '';
             document.getElementById('edit-agent').value = c.agent_name || '';
             document.getElementById('edit-user').value = c.user_name || '';
             document.getElementById('edit-shared-key').value = c.SHARED_KEY || c.api_key || '';
@@ -694,7 +694,7 @@
             const id = document.getElementById('edit-id').value;
             const data = {
                 portal_url: contacts.find(c => c.id == id)?.portal_url || '',
-                display_name: document.getElementById('edit-name').value.trim(),
+                user_name: document.getElementById('edit-name').value.trim(),
                 agent_name: document.getElementById('edit-agent').value.trim(),
                 user_name: document.getElementById('edit-user').value.trim(),
                 SHARED_KEY: document.getElementById('edit-shared-key').value.trim()
