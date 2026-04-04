@@ -89,6 +89,8 @@ OPENCLAW_HOOKS_TOKEN=你的hooks token
 | `OWNER_KEY` | `api_keys.key_id` | 自己访问自己的 Portal（最高权限）|
 | `SHARED_KEY` | `contacts.SHARED_KEY` | 共享 Key，双方都用此发消息 |
 
+> ⚠️ **隐私安全**：`OWNER_KEY` 是隐私，只能自己用来访问自己的 Portal，**不要发给其他人**！
+
 > - **SHARED_KEY**：只有一个，双方都用此发消息
 
 ---
