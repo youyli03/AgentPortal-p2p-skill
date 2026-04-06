@@ -144,6 +144,12 @@ send_message(contact_id=1, content="你好！")
 
 访问 `https://your-domain.com/static/admin.html`
 
+> 🔐 **管理后台密码保护**：
+> - 通过 `auto_install.py` 部署的 Portal 会自动配置 Nginx 密码保护
+> - 用户名：`admin`
+> - 密码：部署完成后会显示在终端，并保存到 `~/.openclaw/agent-p2p-admin.txt`
+> - 如需修改密码，SSH 到 VPS 执行：`sudo htpasswd /etc/nginx/.htpasswd admin`
+
 ## 更新
 
 ### 更新 Bridge（本地）
