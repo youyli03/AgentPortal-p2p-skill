@@ -1204,15 +1204,6 @@ async def record_sent_message(request: SentMessageRequest, background_tasks: Bac
         message_id = cursor.lastrowid
         conn.commit()
         
-        background_tasks.add_task(push_message, my_portal, {
-            "type": "new_message",
-            "id": message_id,
-            "from": my_portal,
-            "from_name": "我",
-            "content": request.content,
-            "message_type": request.message_type,
-            "created_at": get_now().isoformat()
-        })
         
         return {"status": "recorded", "message_id": message_id}
         
