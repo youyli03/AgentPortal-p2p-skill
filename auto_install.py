@@ -143,7 +143,7 @@ export DATABASE_PATH="./data/portal.db"
 mkdir -p data
 
 # 启动服务
-python3 -c "from src.main import init_db; init_db()"
+python3 -c "from vps.main import init_db; init_db()"
 
 # 生成随机密码
 ADMIN_USER="admin"
@@ -218,7 +218,7 @@ User=ubuntu
 WorkingDirectory=/opt/agent-p2p
 Environment=PORTAL_URL=https://{domain}
 Environment=DATABASE_PATH=/opt/agent-p2p/data/portal.db
-ExecStart=/usr/bin/python3 -m uvicorn src.main:app --host 127.0.0.1 --port 8080
+ExecStart=/usr/bin/python3 -m uvicorn vps.main:app --host 127.0.0.1 --port 8080
 Restart=always
 
 [Install]
