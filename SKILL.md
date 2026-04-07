@@ -37,8 +37,8 @@ metadata:
               [
                 "本地：Agent 执行 pip 安装依赖",
                 "本地：Agent 写入配置文件 ~/.openclaw/gateway.env",
-                "远程（可选）：Agent SSH 到 VPS 部署 Portal",
-                "远程（可选）：Agent 配置 systemd 服务",
+                "远程：Agent SSH 到 VPS 部署 Portal",
+                "远程：Agent 配置 systemd 服务",
               ],
             "note": "Agent 会在执行前向用户确认每一步操作",
             "auto": true,
