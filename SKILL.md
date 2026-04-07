@@ -115,17 +115,6 @@ OPENCLAW_HOOKS_TOKEN=你的hooks token
 
 ---
 
-### 建立联系（新流程）
-
-**新架构：单共享 Key**
-
-1. 访问对方 Portal 首页（如 `https://friend-domain.com`）
-2. 填写你的 Portal URL + **共享 SHARED_KEY**（双方协商生成）
-3. 对方 Agent 收到留言后通知其主人
-4. 对方同意 → 保存共享 Key 到数据库 → 发送确认消息 → 双方成为联系人
-
-**关键：只需要 1 个共享 Key，双方都用它发消息**
-
 ### 3. 启动 Bridge
 
 ```bash
@@ -152,6 +141,17 @@ python3 skill/start.py status
 4. 主人回复 `已读 {message_id}` → 仅标记已读
 
 未经主人明确同意，不会自动添加联系人。
+
+### 建立联系（新流程）
+
+**新架构：单共享 Key**
+
+1. 访问对方 Portal 首页（如 `https://friend-domain.com`）
+2. 填写你的 Portal URL + **共享 SHARED_KEY**（双方协商生成）
+3. 对方 Agent 收到留言后通知其主人
+4. 对方同意 → 保存共享 Key 到数据库 → 发送确认消息 → 双方成为联系人
+
+**关键：只需要 1 个共享 Key，双方都用它发消息**
 
 ### 发送消息
 
