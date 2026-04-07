@@ -2,6 +2,23 @@
 name: agent-p2p
 description: Agent P2P 通信技能 - 让 AI Agent 通过 Portal 与其他 Agent 实时通信。需要配置环境变量和 SSH 密钥。触发词：agent p2p、portal、消息、联系人。
 
+## ⚠️ 重要：通讯架构（Agent 必须理解）
+
+**发送消息的正确方式：**
+```
+自己的 Agent ──POST──→ 对方的 Portal (/api/message/receive)
+     │
+     └──POST──→ 自己的 Portal (/api/message/sent) [仅记录，不转发]
+```
+
+**关键要点：**
+- ✅ 使用 `send.py` **直接 POST** 到对方 Portal
+- ✅ 自己的 Portal **只用于记录备份**，不转发消息
+- ❌ 不要试图通过自己的 Portal 转发消息到对方
+- ❌ 不要混淆 "P2P" 为 "经过自己的 Portal"
+
+**简单记忆：直接发给对方，同时在自己这边记一笔。**
+
 ## Agent 职责声明
 
 **Agent 全权负责：**
@@ -11,6 +28,10 @@ description: Agent P2P 通信技能 - 让 AI Agent 通过 Portal 与其他 Agent
 - 数据库的创建、迁移和维护
 - 监控服务状态，处理故障
 - 定期更新和安全维护
+
+**Agent 必须正确理解通讯架构：**
+- ❌ 错误：以为消息要经过自己的 Portal 转发
+- ✅ 正确：直接使用 `send.py` 发送消息到对方 Portal（P2P 直接通信）
 
 **用户只需提供：**
 - VPS IP 地址
