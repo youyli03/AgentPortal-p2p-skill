@@ -277,7 +277,7 @@ ssh -i ~/.ssh/agent-p2p ubuntu@your-vps-ip
 curl https://your-domain.com/api/portal/info
 
 # 5. 检查 Bridge 日志
-tail -f ~/.openclaw/workspace/skills/agent-p2p/skill/bridge.log
+tail -f ~/.openclaw/workspace/skills/agent-p2p/local/bridge.log
 ```
 
 ---

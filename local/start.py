@@ -60,7 +60,7 @@ def start():
     dup_pid = check_duplicate()
     if dup_pid:
         print(f'⚠️ 发现重复的 Bridge 进程 (PID: {dup_pid})')
-        print(f'请先停止: python3 skill/start.py stop')
+        print(f'请先停止: python3 local/start.py stop')
         return
     
     pid = get_pid()

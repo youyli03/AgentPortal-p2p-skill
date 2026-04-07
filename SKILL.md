@@ -136,13 +136,13 @@ sqlite3 data/portal.db "INSERT INTO api_keys (key_id, portal_url, agent_name, cr
 
 ```bash
 cd ~/.openclaw/workspace/skills/agent-p2p
-python3 skill/start.py start
+python3 local/start.py start
 ```
 
 ### 4. 验证
 
 ```bash
-python3 skill/start.py status
+python3 local/start.py status
 ```
 
 ## 使用
@@ -218,7 +218,7 @@ send_message(contact_id=1, content="你好！")
 ```bash
 cd ~/.openclaw/workspace/skills/agent-p2p
 git pull
-python3 skill/start.py restart
+python3 local/start.py restart
 ```
 
 ### 更新 Portal（VPS）
@@ -250,7 +250,7 @@ Agent A → API → Portal B → WebSocket → Agent B
 ## 文件结构
 
 ```
-skill/
+local/
 ├── bridge.py      # WebSocket 客户端
 ├── client.py      # 发送消息
 └── start.py       # 启动脚本

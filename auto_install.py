@@ -297,7 +297,7 @@ OPENCLAW_HOOKS_TOKEN={hooks_token}
     skill_dir = Path.home() / ".openclaw" / "workspace" / "skills" / "agent-p2p"
     if skill_dir.exists():
         subprocess.run(
-            f"cd {skill_dir} && python3 skill/start.py restart",
+            f"cd {skill_dir} && python3 local/start.py restart",
             shell=True
         )
         print(f"  ✅ Bridge 启动成功")

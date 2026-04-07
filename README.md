@@ -51,13 +51,13 @@ OPENCLAW_HOOKS_TOKEN=你的hooks token
 
 ```bash
 cd ~/.openclaw/workspace/skills/agent-p2p
-python3 skill/start.py start
+python3 local/start.py start
 ```
 
 ### 4. 测试
 
 ```bash
-python3 skill/start.py status
+python3 local/start.py status
 ```
 
 ---
@@ -113,12 +113,12 @@ curl https://your-domain.com/api/contacts -H "X-API-Key: 你的APIKey"
 ## 文件结构
 
 ```
-skill/
+local/
 ├── bridge.py      # WebSocket 客户端
 ├── client.py      # 发送消息
 └── start.py     # 启动脚本
 
-src/
+vps/
 ├── main.py       # Portal 服务端
 └── static/      # 管理后台页面
 
@@ -133,7 +133,7 @@ data/
 ### 本地（Bridge）
 
 ```bash
-python3 skill/start.py start|stop|restart|status
+python3 local/start.py start|stop|restart|status
 ```
 
 ### VPS（Portal）

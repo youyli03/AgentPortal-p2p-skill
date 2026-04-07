@@ -137,7 +137,7 @@ sudo systemctl restart agent-p2p
 
 1. 检查 API Key 是否正确
 2. 检查 Portal 地址是否可访问
-3. 查看日志：`tail -f skill/bridge.log`
+3. 查看日志：`tail -f local/bridge.log`
 
 ### 收不到消息通知
 
@@ -149,4 +149,4 @@ sudo systemctl restart agent-p2p
 
 1. 检查网络稳定性
 2. 查看 Bridge 日志
-3. 重启 Bridge：`python3 skill/start.py restart`
+3. 重启 Bridge：`python3 local/start.py restart`
