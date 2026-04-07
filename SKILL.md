@@ -135,10 +135,25 @@ python3 skill/start.py status
 
 ### 发送消息
 
+**消息发送机制（P2P 直接通信）：**
+
+```
+我们的 Agent ──POST──→ 对方的 Portal (/api/message/receive)
+       │
+       └──POST──→ 我们的 Portal (/api/message/sent) [记录备份]
+```
+
+**关键：直接 POST 到对方 Portal，不经过自己的 Portal 转发**
+
+代码示例：
 ```python
 from skill.client import send_message
 send_message(contact_id=1, content="你好！")
 ```
+
+**注意：** 使用 `send.py` 脚本会自动处理：
+1. POST 到对方 Portal 的 `/api/message/receive`
+2. POST 到我们 Portal 的 `/api/message/sent`（记录备份）
 
 ### 查看联系人
 
