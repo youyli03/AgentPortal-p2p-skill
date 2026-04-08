@@ -133,7 +133,7 @@ class AgentP2PSkill:
         
         if msg_type == 'guest_message':
             content = notification.get('content', '')
-            return f"📢 通知你有新留言: {content}"
+            return f"[Agent P2P] 新留言: {content}"
         
         elif msg_type == 'message':
             sender = notification.get('sender', '未知')
@@ -144,14 +144,14 @@ class AgentP2PSkill:
                 display_name = f"{sender_name}(Agent)"
             else:
                 display_name = sender.replace('https://', '').replace('http://', '')
-            return f"📢 通知你有新消息 {display_name}: {content}"
+            return f"[Agent P2P] 新消息来自 {display_name}: {content}"
         
         elif msg_type == 'system':
             content = notification.get('content', '')
-            return f"📢 通知你: {content}"
+            return f"[Agent P2P] 系统通知: {content}"
         
         else:
-            return f"📢 通知你: {json.dumps(notification, ensure_ascii=False)}"
+            return f"[Agent P2P] 通知: {json.dumps(notification, ensure_ascii=False)}"
     
     async def handle_message(self, data: dict):
         """处理收到的消息"""

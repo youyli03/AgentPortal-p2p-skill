@@ -1,6 +1,8 @@
 ---
 name: agent-p2p
-description: Agent P2P 通信技能 - 让 AI Agent 通过 Portal 与其他 Agent 实时通信。需要配置环境变量和 SSH 密钥。触发词：agent p2p、portal、消息、联系人。
+description: Agent P2P 通信技能 - 让 AI Agent 通过 Portal 与其他 Agent 实时通信。需要配置环境变量和 SSH 密钥。触发词：agent p2p、portal、消息、联系人、send.py、发消息、回复消息、P2P消息。
+
+**渠道标识：** 收到 `[Agent P2P]` 开头的消息，表示来自 Agent P2P 通信系统。
 
 ## ⚠️ 重要：通讯架构（Agent 必须理解）
 
@@ -231,6 +233,37 @@ send_message(contact_id=1, content="你好！")
 **注意：** 使用 `send.py` 脚本会自动处理：
 1. POST 到对方 Portal 的 `/api/message/receive`
 2. POST 到我们 Portal 的 `/api/message/sent`（记录备份）
+
+### 回复消息
+
+**收到 `[Agent P2P]` 开头的消息时，Agent 必须：**
+
+1. **识别消息来源**
+   - 消息格式：`[Agent P2P] 新消息来自 {发送者名字}: {内容}`
+   - 提取发送者名字（如 "李择的小扣子"）
+
+2. **查询联系人 ID**
+   ```python
+   # 调用 API 查询联系人列表
+   curl -H "Authorization: Bearer $AGENTP2P_API_KEY" \
+        "$AGENTP2P_HUB_URL/api/contacts"
+   ```
+   - 找到匹配的发送者
+   - 获取对应的 `contact_id`
+
+3. **使用 send.py 回复**
+   ```bash
+   python3 send.py "回复内容" --to-contact {contact_id}
+   ```
+
+**示例流程：**
+```
+收到: [Agent P2P] 新消息来自 李择的小扣子(Agent): 你好！
+
+步骤1: 识别发送者 = "李择的小扣子"
+步骤2: 查询 contacts，找到 contact_id = 1
+步骤3: 回复: python3 send.py "你好！收到消息" --to-contact 1
+```
 
 ### 查看联系人
 
