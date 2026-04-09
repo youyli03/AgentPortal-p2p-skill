@@ -112,10 +112,128 @@ def send_message(api_key, hub_url, contact_id, content):
     return True
 
 
+import hashlib
+import base64
+import math
+
+CHUNK_SIZE = 10 * 1024 * 1024  # 10MB 分片大小
+
+
+def calculate_md5(file_path: str) -> str:
+    """计算文件MD5"""
+    md5_hash = hashlib.md5()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            md5_hash.update(chunk)
+    return md5_hash.hexdigest()
+
+
+def calculate_chunk_md5(data: bytes) -> str:
+    """计算分片MD5"""
+    return hashlib.md5(data).hexdigest()
+
+
+def format_size(size_bytes: int) -> str:
+    """格式化文件大小"""
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    elif size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.2f} KB"
+    elif size_bytes < 1024 * 1024 * 1024:
+        return f"{size_bytes / 1024 / 1024:.2f} MB"
+    else:
+        return f"{size_bytes / 1024 / 1024 / 1024:.2f} GB"
+
+
 def send_file(api_key, hub_url, contact_id, file_path):
-    """发送文件"""
-    from client import send_file as client_send_file
-    return client_send_file(contact_id, file_path)
+    """发送文件（简化版：直接上传到接收方 Portal）"""
+    import requests
+    from pathlib import Path
+    
+    # 获取联系人信息
+    contact = get_contact(api_key, hub_url, contact_id)
+    if not contact:
+        print(f"❌ 联系人 {contact_id} 不存在")
+        return False
+    
+    to_portal = contact.get("portal_url")
+    shared_key = contact.get("SHARED_KEY")
+    
+    if not to_portal or not shared_key:
+        print("❌ 联系人信息不完整")
+        return False
+    
+    file_path = Path(file_path)
+    filename = file_path.name
+    file_size = file_path.stat().st_size
+    file_md5 = calculate_md5(str(file_path))
+    chunks_total = math.ceil(file_size / CHUNK_SIZE)
+    
+    print(f"📤 准备发送文件: {filename}")
+    print(f"   大小: {format_size(file_size)}")
+    print(f"   分片: {chunks_total} 个")
+    
+    # 1. 初始化文件传输
+    try:
+        resp = requests.post(
+            f"{hub_url}/api/file/initiate",
+            json={
+                "api_key": shared_key,
+                "to_portal": to_portal,
+                "filename": filename,
+                "file_size": file_size,
+                "file_md5": file_md5,
+                "chunks_total": chunks_total
+            },
+            verify=False,
+            timeout=30
+        )
+        
+        if resp.status_code != 200:
+            print(f"❌ 初始化传输失败: {resp.status_code}")
+            return False
+        
+        result = resp.json()
+        file_id = result.get("file_id")
+        print(f"✅ 传输已初始化 (file_id: {file_id[:20]}...)")
+        
+    except Exception as e:
+        print(f"❌ 初始化传输失败: {e}")
+        return False
+    
+    # 2. 上传文件分片
+    try:
+        with open(file_path, "rb") as f:
+            for chunk_index in range(chunks_total):
+                chunk_data = f.read(CHUNK_SIZE)
+                chunk_md5 = calculate_chunk_md5(chunk_data)
+                
+                # 上传分片
+                resp = requests.post(
+                    f"{hub_url}/api/file/chunk/{file_id}/{chunk_index}",
+                    json={
+                        "api_key": shared_key,
+                        "chunk_data": base64.b64encode(chunk_data).decode(),
+                        "chunk_md5": chunk_md5
+                    },
+                    verify=False,
+                    timeout=60
+                )
+                
+                if resp.status_code != 200:
+                    print(f"❌ 上传分片 {chunk_index} 失败: {resp.status_code}")
+                    return False
+                
+                progress = (chunk_index + 1) / chunks_total * 100
+                print(f"\r   上传进度: {progress:.1f}%", end="", flush=True)
+        
+        print(f"\n✅ 文件上传完成")
+        print(f"   文件ID: {file_id}")
+        return True
+        
+    except Exception as e:
+        print(f"\n❌ 上传文件失败: {e}")
+        return False
 
 
 def list_contacts(api_key, hub_url):
