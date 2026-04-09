@@ -173,13 +173,13 @@ def send_file(api_key, hub_url, contact_id, file_path):
     print(f"   大小: {format_size(file_size)}")
     print(f"   分片: {chunks_total} 个")
     
-    # 1. 初始化文件传输
+    # 1. 初始化文件传输（直接上传到接收方 Portal）
     try:
         resp = requests.post(
-            f"{hub_url}/api/file/initiate",
+            f"{to_portal}/api/file/initiate",
             json={
                 "api_key": shared_key,
-                "to_portal": to_portal,
+                "from_portal": hub_url,
                 "filename": filename,
                 "file_size": file_size,
                 "file_md5": file_md5,
@@ -208,9 +208,9 @@ def send_file(api_key, hub_url, contact_id, file_path):
                 chunk_data = f.read(CHUNK_SIZE)
                 chunk_md5 = calculate_chunk_md5(chunk_data)
                 
-                # 上传分片
+                # 上传分片（上传到接收方 Portal）
                 resp = requests.post(
-                    f"{hub_url}/api/file/chunk/{file_id}/{chunk_index}",
+                    f"{to_portal}/api/file/chunk/{file_id}/{chunk_index}",
                     json={
                         "api_key": shared_key,
                         "chunk_data": base64.b64encode(chunk_data).decode(),
