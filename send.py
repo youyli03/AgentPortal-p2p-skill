@@ -232,6 +232,27 @@ def send_file(api_key, hub_url, contact_id, file_path):
         
         print(f"\n✅ 文件上传完成")
         print(f"   文件ID: {file_id}")
+        
+        # 3. 记录到自己的 Portal (备份)
+        try:
+            resp_backup = requests.post(
+                f"{hub_url}/api/file/sent",
+                json={
+                    "api_key": api_key,
+                    "to_portal": to_portal,
+                    "filename": filename,
+                    "file_id": file_id,
+                    "file_size": file_size
+                },
+                verify=False
+            )
+            if resp_backup.status_code == 200:
+                print(f"✅ 已记录到自己的 Portal")
+            else:
+                print(f"⚠️ 记录到自己的 Portal 失败: {resp_backup.status_code}")
+        except Exception as e:
+            print(f"⚠️ 备份文件记录失败: {e}")
+        
         return True
         
     except Exception as e:
