@@ -215,6 +215,17 @@ class AgentP2PSkill:
                     'message_ids': [msg_id]
                 }))
         
+        elif msg_type == 'file_transfer':
+            content = data.get('content', '')
+            logger.info(f'文件传输通知: {content}')
+            notification = {
+                'type': 'file_transfer',
+                'content': content,
+                'priority': 'high',
+                'timestamp': datetime.now().isoformat(),
+                'actions': ['查看', '下载']
+            }
+
         elif msg_type == 'sync_response':
             messages = data.get('messages', [])
             if messages:
@@ -228,7 +239,7 @@ class AgentP2PSkill:
                         'id': msg.get('id')
                     })
                     message_ids.append(msg.get('id'))
-                
+
                 # 发送 ack 确认收到离线消息
                 if message_ids and self.ws:
                     await self.ws.send(json.dumps({

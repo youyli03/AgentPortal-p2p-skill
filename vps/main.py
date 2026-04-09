@@ -235,9 +235,12 @@ def get_my_portal_url() -> str:
 async def notify_openclaw(content: str, message_type: str = "guest_message"):
     """发送通知到 OpenClaw
     
-    当前实现：记录到待通知队列，由 Agent 通过心跳检查拉取
+    1. 记录到待通知队列（用于离线消息）
+    2. 通过 WebSocket 实时通知在线的 Agent
     """
     try:
+        my_portal = get_my_portal_url()
+        
         conn = sqlite3.connect(DATABASE_PATH)
         cursor = conn.cursor()
         
@@ -256,11 +259,23 @@ async def notify_openclaw(content: str, message_type: str = "guest_message"):
         cursor.execute('''
             INSERT INTO pending_notifications (type, content, portal)
             VALUES (?, ?, ?)
-        ''', (message_type, content, get_my_portal_url()))
+        ''', (message_type, content, my_portal))
         
         conn.commit()
         conn.close()
         print(f"[OpenClaw Notify] Queued: {content[:50]}...")
+        
+        # 通过 WebSocket 实时通知
+        try:
+            await manager.send_message(my_portal, {
+                "type": message_type,
+                "content": content,
+                "timestamp": get_now().isoformat()
+            })
+            print(f"[OpenClaw Notify] Real-time notification sent to {my_portal}")
+        except Exception as e:
+            print(f"[OpenClaw Notify] Real-time notification failed (Agent may be offline): {e}")
+            
     except Exception as e:
         print(f"[OpenClaw Notify] Failed: {e}")
 
@@ -1356,7 +1371,7 @@ async def confirm_file_transfer(request: FileConfirmRequest):
             conn.close()
 
 @app.post("/api/file/chunk/{file_id}/{chunk_index}")
-async def upload_file_chunk(file_id: str, chunk_index: int, request: FileChunkRequest):
+async def upload_file_chunk(file_id: str, chunk_index: int, request: FileChunkRequest, background_tasks: BackgroundTasks):
     """上传文件分片"""
     conn = None
     try:
@@ -1423,7 +1438,6 @@ async def upload_file_chunk(file_id: str, chunk_index: int, request: FileChunkRe
         
         if received_count >= chunks_total:
             # 所有分片接收完成，验证完整文件MD5
-            background_tasks = BackgroundTasks()
             background_tasks.add_task(verify_and_complete_transfer, file_id)
         
         return {
