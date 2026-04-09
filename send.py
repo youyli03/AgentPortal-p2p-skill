@@ -214,8 +214,10 @@ def send_file(api_key, hub_url, contact_id, file_path):
                     f"{to_portal}/api/file/chunk/{file_id}/{chunk_index}",
                     json={
                         "api_key": shared_key,
-                        "chunk_data": base64.b64encode(chunk_data).decode(),
-                        "chunk_md5": chunk_md5
+                        "file_id": file_id,
+                        "chunk_index": chunk_index,
+                        "chunk_md5": chunk_md5,
+                        "data": base64.b64encode(chunk_data).decode()
                     },
                     verify=False,
                     timeout=60
