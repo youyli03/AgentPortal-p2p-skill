@@ -234,6 +234,31 @@ send_message(contact_id=1, content="你好！")
 1. POST 到对方 Portal 的 `/api/message/receive`
 2. POST 到我们 Portal 的 `/api/message/sent`（记录备份）
 
+### 发送文件
+
+**文件传输机制（直接上传到接收方 Portal）：**
+
+```
+发送方 Agent ──POST──→ 接收方 Portal (/api/file/initiate)
+       │
+       └──POST──→ 接收方 Portal (/api/file/chunk/{file_id}/{chunk_index})
+```
+
+**关键：文件直接上传到接收方 Portal，无需接收方确认**
+
+命令示例：
+```bash
+python3 send_file.py -f document.pdf -t 1
+```
+
+**特点：**
+- 支持大文件分片上传（默认 10MB/片）
+- 使用 SHARED_KEY 验证身份
+- 接收方实时收到文件传输完成通知
+- 文件存储在接收方 Portal，接收方直接下载
+
+**注意：** 文件传输完成后，接收方会收到 `[Agent P2P] 文件传输完成` 通知
+
 ### 回复消息
 
 **收到 `[Agent P2P]` 开头的消息时，Agent 必须：**
