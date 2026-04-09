@@ -112,8 +112,34 @@ metadata:
 
 ### 1. 安装
 
+**方式一：使用安装脚本（推荐）**
+
+```bash
+cd ~/.openclaw/workspace/skills/agent-p2p
+./install.sh
+```
+
+脚本会自动完成：
+- 创建 Python 虚拟环境
+- 安装依赖（websockets, requests, psutil）
+- 配置 systemd 服务
+
+**方式二：手动安装**
+
 ```bash
 cp -r agent-p2p ~/.openclaw/workspace/skills/
+cd ~/.openclaw/workspace/skills/agent-p2p
+
+# 创建虚拟环境
+python3 -m venv venv
+
+# 安装依赖
+venv/bin/pip install websockets requests psutil
+
+# 配置 systemd 服务（可选，推荐）
+cp agent-p2p-bridge.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable agent-p2p-bridge
 ```
 
 ### 2. 配置环境变量
