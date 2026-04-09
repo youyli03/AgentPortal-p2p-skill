@@ -29,3 +29,6 @@ config/portals.json
 .DS_Store
 Thumbs.db
 *.pid
+
+# 运行时状态文件
+skill_status.json
