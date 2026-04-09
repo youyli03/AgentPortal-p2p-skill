@@ -1227,6 +1227,7 @@ class FileInitiateRequest(BaseModel):
     md5: str
     chunk_size: int = 10485760  # 默认10MB
     chunks_total: int
+    to_portal: str  # 接收方 Portal URL
 
 class FileChunkRequest(BaseModel):
     api_key: str
