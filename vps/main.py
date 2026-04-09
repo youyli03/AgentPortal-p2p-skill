@@ -1242,10 +1242,10 @@ class FileConfirmRequest(BaseModel):
 
 @app.post("/api/file/initiate")
 async def initiate_file_transfer(request: FileInitiateRequest, background_tasks: BackgroundTasks):
-    """初始化文件传输"""
+    """初始化文件传输（简化版：无需确认，直接上传）"""
     conn = None
     try:
-        # 验证API Key
+        # 验证API Key（必须是联系人）
         from_portal = verify_api_key(request.api_key)
         if not from_portal:
             raise HTTPException(status_code=401, detail="Invalid API Key")
@@ -1259,25 +1259,22 @@ async def initiate_file_transfer(request: FileInitiateRequest, background_tasks:
         # 获取我的Portal URL
         my_portal = get_my_portal_url()
         
-        # 插入传输记录
+        # 插入传输记录（直接设置为 transferring，无需确认）
         cursor.execute('''
             INSERT INTO file_transfers 
             (file_id, filename, size, md5, chunk_size, chunks_total, 
-             from_portal, to_portal, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+             from_portal, to_portal, status, receiver_confirmed, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'transferring', TRUE, ?)
         ''', (file_id, request.filename, request.size, request.md5, 
               request.chunk_size, request.chunks_total,
               from_portal, my_portal, get_now().strftime('%Y-%m-%d %H:%M:%S')))
         
         conn.commit()
         
-        # 通知接收方有新文件
-        background_tasks.add_task(notify_new_file, my_portal, from_portal, request.filename, file_id)
-        
         return {
-            "status": "initiated",
+            "status": "ready",
             "file_id": file_id,
-            "message": "等待接收方确认"
+            "message": "可以开始上传文件分片"
         }
         
     except HTTPException:
