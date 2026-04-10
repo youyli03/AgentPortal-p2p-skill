@@ -279,10 +279,13 @@ PYEOF2
 
 # ── step_06: systemd 服务 ──────────────────────────────────────
 step_06_systemd() {
-    checkpoint_skip "step_06" && { log_info "跳过 step_06"; return 0; }
-    log_info "=== step_06: 创建 systemd 服务 ==="
+    # 检查点只保护"写 service 文件"这一步。
+    # 但每次运行都无条件执行 restart，确保代码更新后新版本生效。
+    log_info "=== step_06: 配置并重启 systemd 服务 ==="
 
-    cat > /etc/systemd/system/agent-p2p.service << SVCEOF
+    if ! checkpoint_skip "step_06"; then
+        # 首次安装：写 service 文件
+        cat > /etc/systemd/system/agent-p2p.service << SVCEOF
 [Unit]
 Description=Agent P2P Portal
 After=network.target
@@ -301,15 +304,24 @@ RestartSec=5
 WantedBy=multi-user.target
 SVCEOF
 
-    systemctl daemon-reload
-    systemctl enable agent-p2p
+        systemctl daemon-reload
+        systemctl enable agent-p2p
+        checkpoint_done "step_06"
+        log_info "service 文件已创建并 enable"
+    else
+        log_info "service 文件已存在（跳过写入），执行 daemon-reload"
+        systemctl daemon-reload
+    fi
+
+    # 无论是否首次安装，都执行 restart（保证代码更新后新版本生效）
+    log_info "重启 agent-p2p 服务..."
     systemctl restart agent-p2p || fail "step_06" "service_start_failed"
 
     # 等待服务就绪（最多 20 秒）
     for i in $(seq 1 20); do
         sleep 1
         if systemctl is-active --quiet agent-p2p; then
-            log_info "服务已启动"
+            log_info "服务已启动 (等待 ${i}s)"
             break
         fi
         if [[ $i -eq 20 ]]; then
@@ -317,8 +329,6 @@ SVCEOF
             fail "step_06" "service_not_active_after_20s"
         fi
     done
-
-    checkpoint_done "step_06"
 }
 
 # ── step_07: 验证 ──────────────────────────────────────────────

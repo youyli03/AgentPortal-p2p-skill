@@ -119,71 +119,107 @@ metadata:
 
 ## 快速开始
 
-### 1. 安装
+> ⚠️ **AI 必读：完整部署流程见 [DEPLOY.md](DEPLOY.md)**，本节为概要。
 
-**方式一：使用安装脚本（推荐）**
+### 部署全流程（AI 全自动执行）
+
+**第一步：VPS 部署 Portal**
+
+AI 通过 SSH 执行：
+
+```bash
+ssh -i <SSH_KEY> ubuntu@<VPS_IP> \
+  "curl -fsSL https://raw.githubusercontent.com/yananli199307-dev/AgentPortal-p2p-skill/master/vps_install.sh | sudo bash -s <DOMAIN> <EMAIL>"
+```
+
+脚本内置 7 个检查点步骤（断点续装，重跑自动跳过已完成步骤）：
+
+| 步骤 | 内容 |
+|------|------|
+| step_01 | 安装系统依赖（git/nginx/certbot/python3/sqlite3） |
+| step_02 | 克隆仓库到 `/opt/agent-p2p` |
+| step_03 | 创建 Python venv + pip install |
+| step_04 | 配置 Nginx + 申请 SSL（certbot 后**自动 restart nginx**） |
+| step_05 | 初始化 SQLite 数据库 + 生成 `ap2p_xxx` API Key |
+| step_06 | 创建 systemd 服务 + **每次执行都自动 restart 服务**（确保代码更新后新版本生效） |
+| step_07 | 验证本地 HTTP/HTTPS 健康 |
+
+> 🔁 **自动重启已内置（step_06）**：不论首次安装还是重跑，脚本都会执行 `systemctl restart agent-p2p`。
+> 代码更新后只需重跑脚本，**无需手动重启**。
+
+成功标志（AI grep 提取 API_KEY）：
+```
+INSTALL_OK API_KEY=ap2p_xxx PORTAL_URL=https://<DOMAIN> ADMIN_PASS=xxx
+```
+
+失败标志（AI 判断是否需要清理重装）：
+```
+INSTALL_FAILED STEP=step_04 ERROR=certbot_failed
+```
+
+**第二步：本地 Bridge 安装**
+
+AI 从第一步输出提取 `API_KEY` 和 `PORTAL_URL`，然后执行：
 
 ```bash
 cd ~/.openclaw/workspace/skills/agent-p2p
-./install.sh
+bash local_install.sh <API_KEY> <PORTAL_URL>
 ```
 
-脚本会自动完成：
-- 创建 Python 虚拟环境
-- 安装依赖（websockets, requests, psutil）
-- 配置 systemd 服务
+脚本自动完成：
+- 创建本地 venv + 安装依赖（websockets/requests）
+- 从 `openclaw.json` 读取 hooks token（不存在则自动生成）
+- 写入 `~/.openclaw/gateway.env`（字段名：`AGENTP2P_API_KEY`）
+- 后台启动 `local/bridge.py` 并验证进程存活
 
-**方式二：手动安装**
-
-```bash
-cp -r agent-p2p ~/.openclaw/workspace/skills/
-cd ~/.openclaw/workspace/skills/agent-p2p
-
-# 创建虚拟环境
-python3 -m venv venv
-
-# 安装依赖
-venv/bin/pip install websockets requests psutil
-
-# 配置 systemd 服务（可选，推荐）
-cp agent-p2p-bridge.service ~/.config/systemd/user/
-systemctl --user daemon-reload
-systemctl --user enable agent-p2p-bridge
+成功标志：
+```
+LOCAL_OK BRIDGE_PID=<pid>
 ```
 
-### 2. 配置环境变量
-
-编辑 `~/.openclaw/gateway.env`：
+**完成验证**：
 
 ```bash
-AGENTP2P_API_KEY=你的API Key
-AGENTP2P_HUB_URL=https://your-domain.com
+# 1. VPS Portal 健康
+curl -sk https://<DOMAIN>/api/portal/info
+
+# 2. VPS 服务状态（SSH 登录后验证）
+systemctl is-active agent-p2p
+
+# 3. 本地 bridge 进程
+ps aux | grep bridge.py
+
+# 4. bridge 连接状态（connected = 正常）
+cat ~/.openclaw/workspace/skills/agent-p2p/skill_status.json
+```
+
+**回退（全量清理）**：
+
+```bash
+# VPS
+ssh ubuntu@<VPS_IP> "curl -fsSL .../vps_uninstall.sh | sudo bash"
+# 本地
+bash ~/.openclaw/workspace/skills/agent-p2p/local_uninstall.sh
+```
+
+### 环境变量说明
+
+`~/.openclaw/gateway.env`（由 `local_install.sh` 自动写入，无需手动编辑）：
+
+```bash
+AGENTP2P_API_KEY=ap2p_xxx      # Owner Key，最高权限，不要共享
+AGENTP2P_HUB_URL=https://...   # 自己的 Portal 域名
 OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789
-OPENCLAW_HOOKS_TOKEN=你的hooks token
+OPENCLAW_HOOKS_TOKEN=xxx        # 自动从 openclaw.json 读取
 ```
-
-**获取方式：**
-- API Key：Portal 管理后台 → 我的信息
-- Hub URL：你的 Portal 域名
-- Gateway 端口：运行 `openclaw status` 查看（默认 18789）
-- Hooks Token：`~/.openclaw/openclaw.json` 中 `hooks.token`
-
-> 📚 **完整环境变量参考**：参见 [ENV.md](ENV.md)
-
-> ⚠️ 注意：`OPENCLAW_GATEWAY_URL` 端口需根据你实际的 OpenClaw Gateway 配置填写，运行 `openclaw status` 可查看。
 
 ### API Key 类型说明
 
-| 类型 | 数据库位置 | 用途 |
-|------|-----------|------|
-| `OWNER_KEY` | `api_keys.key_id` | 自己访问自己的 Portal（最高权限）|
-| `SHARED_KEY` | `contacts.SHARED_KEY` | 共享 Key，双方都用此发消息 |
+| 类型 | 存储位置 | 用途 |
+|------|---------|------|
+| `OWNER_KEY` | `api_keys.key_id` | 自己访问自己的 Portal（**不要共享给他人**）|
+| `SHARED_KEY` | `contacts.SHARED_KEY` | 双方通信共享 Key，由请求方生成，双方都用此发消息 |
 
-> ⚠️ **隐私安全**：`OWNER_KEY` 是隐私，只能自己用来访问自己的 Portal，**不要发给其他人**！
-
-> - **SHARED_KEY**：只有一个，双方都用此发消息
-
----
 
 ## 首次设置（SSH）
 
