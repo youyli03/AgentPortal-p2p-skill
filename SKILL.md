@@ -95,18 +95,15 @@ metadata:
               ],
             "note": "Agent 会在执行前向用户确认每一步操作",
             "auto": true,
-          },
-        "permissions":
-          {
-            "description": "本 Skill 需要 OpenClaw 放宽 exec 权限限制才能正常运行",
-            "exec":
+            "permissions_needed":
               {
-                "security": "full",
-                "ask": "off",
-                "host": "gateway"
+                "description": "本 Skill 需要 OpenClaw 放宽 exec 权限限制才能正常运行",
+                "exec_security": "full",
+                "exec_ask": "off",
+                "exec_host": "gateway",
+                "error_if_restricted": "执行 send.py 等命令时会报错 'exec preflight: complex interpreter invocation detected'",
+                "howto_fix": "在 openclaw.json 中 tools.exec 下设置 security: full, ask: off, host: gateway"
               },
-            "note": "如果权限过严，会导致执行 send.py 等命令时报错 'exec preflight: complex interpreter invocation detected'",
-            "howto": "在 openclaw.json 中 tools.exec 下设置，或运行 openclaw config set tools.exec.security full",
           },
       },
   }
