@@ -1,306 +1,188 @@
-# Agent P2P 部署踩坑指南
+# Agent P2P 部署指南（AI 可读版）
 
-## 前置检查清单
-
-### 1. 域名解析
-
-**必须完成：** 在域名服务商处添加 A 记录
-
-```
-类型: A
-主机: @ 或 www
-值: VPS 的 IP 地址
-TTL: 600（10分钟）
-```
-
-**验证解析：**
-```bash
-nslookup your-domain.com
-# 应该返回你的 VPS IP
-```
-
-**常见问题：**
-- ❌ DNS 未生效就部署 → SSL 证书申请失败
-- ✅ 等待 5-10 分钟，确认解析成功后再部署
+> 本文档供 AI Agent 执行部署时参考，采用结构化格式，每步命令和预期输出都明确标注。
 
 ---
 
-### 2. 防火墙设置
+## 一、前置信息采集
 
-#### 2.1 云服务商安全组（必须）
+AI 在执行部署前，必须逐字段向用户确认以下参数：
 
-**腾讯云：**
+| 参数 | 说明 | 示例 |
+|------|------|------|
+| `VPS_IP` | VPS 公网 IP | `43.12.34.56` |
+| `DOMAIN` | 已解析到 VPS IP 的域名 | `agent.example.com` |
+| `SSH_KEY` | 本地 SSH 私钥路径 | `~/.ssh/agent-p2p` |
+| `EMAIL` | SSL 证书注册邮箱 | `user@example.com` |
+
+**确认域名解析：**
 ```bash
-# 控制台 → 安全组 → 入站规则
-TCP 22    # SSH
-TCP 80    # HTTP
-TCP 443   # HTTPS
-```
-
-**阿里云：**
-```bash
-# 控制台 → 安全组 → 入方向
-允许 22/22    # SSH
-允许 80/80    # HTTP
-允许 443/443  # HTTPS
-```
-
-**AWS：**
-```bash
-# EC2 → Security Groups → Inbound rules
-Type: SSH, HTTP, HTTPS
-Source: 0.0.0.0/0
-```
-
-#### 2.2 系统防火墙
-
-**Ubuntu（ufw）：**
-```bash
-sudo ufw allow 22/tcp
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw enable
-```
-
-**CentOS（firewalld）：**
-```bash
-sudo firewall-cmd --permanent --add-port=22/tcp
-sudo firewall-cmd --permanent --add-port=80/tcp
-sudo firewall-cmd --permanent --add-port=443/tcp
-sudo firewall-cmd --reload
-```
-
-**常见问题：**
-- ❌ 只开了云防火墙，没开系统防火墙 → 连接失败
-- ❌ 端口冲突（如 80 被 Nginx 占用）→ 部署失败
-- ✅ 两者都要开放
-
----
-
-### 3. SSH 密钥
-
-**生成密钥：**
-```bash
-ssh-keygen -t ed25519 -C "agent-p2p" -f ~/.ssh/agent-p2p
-# 不要设置密码（直接回车）
-```
-
-**复制公钥到 VPS：**
-```bash
-ssh-copy-id -i ~/.ssh/agent-p2p.pub ubuntu@your-vps-ip
-```
-
-**验证免密登录：**
-```bash
-ssh -i ~/.ssh/agent-p2p ubuntu@your-vps-ip
-# 应该无需密码直接登录
-```
-
-**常见问题：**
-- ❌ 密钥权限 644 → SSH 拒绝
-- ✅ 必须是 600：`chmod 600 ~/.ssh/agent-p2p`
-- ❌ 设置了密钥密码 → 自动化脚本卡住
-- ✅ 生成时不要设置密码
-
----
-
-### 4. VPS 系统要求
-
-**推荐：** Ubuntu 20.04/22.04 LTS
-
-**最低配置：**
-- 1 vCPU
-- 1GB 内存
-- 10GB 磁盘
-
-**检查：**
-```bash
-# 内存
-free -h
-
-# 磁盘
-df -h
-
-# 系统版本
-cat /etc/os-release
+nslookup $DOMAIN
+# 预期输出中应包含 VPS_IP
 ```
 
 ---
 
-## 部署流程
+## 二、VPS 端部署
 
-### 自动部署（推荐）
+### 步骤 1：SSH 到 VPS，下载并执行安装脚本
 
-Agent 会自动执行以下步骤：
-
-1. **检查域名解析**
-   - 等待 DNS 生效
-   - 超时 5 分钟则提示用户检查 DNS
-
-2. **检查防火墙**
-   - 检测云服务商
-   - 提示开放端口命令
-
-3. **SSH 连接测试**
-   - 验证免密登录
-   - 检查密钥权限
-
-4. **安装依赖**
-   - Python3、pip、Nginx、Certbot
-
-5. **部署代码**
-   - 从 GitHub 拉取
-   - 安装 Python 依赖
-
-6. **配置 Nginx**
-   - 反向代理到 8080
-   - SSL 证书申请
-
-7. **启动服务**
-   - 创建 systemd 服务
-   - 启动并设置开机自启
-
-8. **获取 API Key**
-   - 从数据库读取默认 Key
-   - 配置到本地 Bridge
-
-9. **测试连接**
-   - Bridge → Portal
-   - Portal → OpenClaw
-
----
-
-## 常见错误
-
-### 错误 1：SSL 证书申请失败
-
-**原因：**
-- 域名未解析到 VPS
-- 80 端口被占用
-- 防火墙阻止
-
-**解决：**
 ```bash
-# 检查域名解析
-nslookup your-domain.com
+ssh -i $SSH_KEY -o StrictHostKeyChecking=no ubuntu@$VPS_IP \
+  "curl -fsSL https://raw.githubusercontent.com/yananli199307-dev/AgentPortal-p2p-skill/master/vps_install.sh | sudo bash -s $DOMAIN $EMAIL"
+```
 
-# 检查 80 端口
-sudo lsof -i :80
+**预期成功输出（最后一行）：**
+```
+INSTALL_OK API_KEY=ap2p_xxxx PORTAL_URL=https://$DOMAIN ADMIN_PASS=xxxx
+```
 
-# 临时停止占用 80 端口的服务
-sudo systemctl stop nginx
+**预期失败输出：**
+```
+INSTALL_FAILED STEP=step_04 ERROR=certbot_failed
+```
 
-# 重新部署
+### 步骤 2：从输出中提取 API Key
+
+```bash
+# 从上一步输出中提取（AI 用 grep 或正则解析）
+API_KEY=$(echo "$INSTALL_OUTPUT" | grep "^INSTALL_OK" | grep -oP 'API_KEY=\K\S+')
+PORTAL_URL=$(echo "$INSTALL_OUTPUT" | grep "^INSTALL_OK" | grep -oP 'PORTAL_URL=\K\S+')
+```
+
+### 步骤 3：验证 VPS Portal 是否正常
+
+```bash
+curl -sk "https://$DOMAIN/api/portal/info"
+# 预期：返回 JSON，包含 portal_url 字段
 ```
 
 ---
 
-### 错误 2：SSH 连接失败
+## 三、本地 Bridge 安装
 
-**原因：**
-- 密钥权限不对
-- 未复制公钥到 VPS
-- VPS 未开放 22 端口
+### 步骤 4：执行本地安装脚本
 
-**解决：**
 ```bash
-# 检查密钥权限
-ls -la ~/.ssh/agent-p2p
-# 应该是 -rw------- (600)
-
-# 修复权限
-chmod 600 ~/.ssh/agent-p2p
-
-# 重新复制公钥
-ssh-copy-id -i ~/.ssh/agent-p2p ubuntu@your-vps-ip
+cd ~/.openclaw/workspace/skills/agent-p2p
+bash local_install.sh $API_KEY $PORTAL_URL
 ```
 
----
-
-### 错误 3：Nginx 配置失败
-
-**原因：**
-- 域名格式错误
-- SSL 证书路径错误
-- 权限不足
-
-**解决：**
-```bash
-# 检查 Nginx 配置语法
-sudo nginx -t
-
-# 查看错误日志
-sudo tail -f /var/log/nginx/error.log
-
-# 手动测试证书申请
-certbot certonly --standalone -d your-domain.com
+**预期成功输出：**
+```
+LOCAL_OK BRIDGE_PID=12345
 ```
 
----
+**预期失败输出：**
+```
+LOCAL_FAILED STEP=step_07 ERROR=bridge_not_running
+```
 
-### 错误 4：Bridge 无法连接 Portal
+### 步骤 5：验证本地 Bridge
 
-**原因：**
-- API Key 错误
-- Portal 未启动
-- 防火墙阻止
-
-**解决：**
 ```bash
-# 检查 Portal 状态
-ssh ubuntu@your-vps-ip "sudo systemctl status agent-p2p"
+# 检查进程
+ps aux | grep bridge.py
 
-# 重启 Portal
-ssh ubuntu@your-vps-ip "sudo systemctl restart agent-p2p"
+# 检查状态文件
+cat ~/.openclaw/workspace/skills/agent-p2p/skill_status.json
+# 预期: {"status": "connected", ...}
 
 # 检查日志
-ssh ubuntu@your-vps-ip "sudo journalctl -u agent-p2p -n 50"
+tail -20 ~/.openclaw/workspace/skills/agent-p2p/bridge.log
 ```
 
 ---
 
-## 手动排查命令
+## 四、断点续装（安装失败后重跑）
+
+VPS 安装脚本内置检查点，失败后直接重跑会自动跳过已完成步骤：
 
 ```bash
-# 1. 检查域名解析
-nslookup your-domain.com
+# 重跑 VPS 安装（从断点继续）
+ssh -i $SSH_KEY ubuntu@$VPS_IP "sudo bash /opt/agent-p2p/vps_install.sh $DOMAIN $EMAIL"
+```
 
-# 2. 检查端口开放
-telnet your-vps-ip 22
-telnet your-vps-ip 80
-telnet your-vps-ip 443
-
-# 3. 检查 SSH 连接
-ssh -i ~/.ssh/agent-p2p ubuntu@your-vps-ip
-
-# 4. 检查 Portal 状态
-curl https://your-domain.com/api/portal/info
-
-# 5. 检查 Bridge 日志
-tail -f ~/.openclaw/workspace/skills/agent-p2p/local/bridge.log
+**查看当前检查点状态：**
+```bash
+ssh -i $SSH_KEY ubuntu@$VPS_IP "cat /opt/agent-p2p/.install_state.json"
 ```
 
 ---
 
-## 安全建议
+## 五、回退（全量清理）
 
-1. **使用专用 SSH 密钥**
-   - 不要和主密钥混用
-   - 仅授权 Portal VPS
+### VPS 端回退
 
-2. **定期更新系统**
-   ```bash
-   sudo apt update && sudo apt upgrade -y
-   ```
+```bash
+ssh -i $SSH_KEY ubuntu@$VPS_IP \
+  "curl -fsSL https://raw.githubusercontent.com/yananli199307-dev/AgentPortal-p2p-skill/master/vps_uninstall.sh | sudo bash"
+```
 
-3. **备份数据**
-   ```bash
-   # 备份数据库
-   scp ubuntu@your-vps-ip:/opt/agent-p2p/data/portal.db ./backup/
-   ```
+**预期输出：**
+```
+UNINSTALL_OK
+```
 
-4. **监控日志**
-   ```bash
-   # 设置日志轮转
-   sudo logrotate -f /etc/logrotate.d/agent-p2p
-   ```
+### 本地端回退
+
+```bash
+cd ~/.openclaw/workspace/skills/agent-p2p
+bash local_uninstall.sh
+```
+
+---
+
+## 六、常用运维命令
+
+```bash
+# 查看 VPS Portal 状态
+ssh -i $SSH_KEY ubuntu@$VPS_IP "systemctl status agent-p2p"
+
+# 查看 VPS Portal 日志
+ssh -i $SSH_KEY ubuntu@$VPS_IP "journalctl -u agent-p2p -n 50 --no-pager"
+
+# 重启 VPS Portal
+ssh -i $SSH_KEY ubuntu@$VPS_IP "sudo systemctl restart agent-p2p"
+
+# 查看本地 bridge 日志
+tail -f ~/.openclaw/workspace/skills/agent-p2p/bridge.log
+
+# 重启本地 bridge
+cd ~/.openclaw/workspace/skills/agent-p2p && bash local_install.sh $API_KEY $PORTAL_URL
+```
+
+---
+
+## 七、常见错误处理
+
+| 错误 | 原因 | 处理方式 |
+|------|------|---------|
+| `INSTALL_FAILED STEP=step_04 ERROR=certbot_failed` | 域名未解析到 VPS IP | 检查 DNS A 记录，等待生效后重跑 |
+| `INSTALL_FAILED STEP=step_01 ERROR=apt_update_failed` | VPS 网络问题 | 检查 VPS 网络连通性 |
+| `LOCAL_FAILED STEP=step_07 ERROR=bridge_not_running` | bridge 启动失败 | 查看 bridge.log，检查 API_KEY 和 PORTAL_URL 是否正确 |
+| `INSTALL_FAILED STEP=step_06 ERROR=service_not_active` | Portal 服务启动失败 | 运行 `journalctl -u agent-p2p -n 50` 查看原因 |
+
+---
+
+## 八、部署完成后的验证清单
+
+AI 完成部署后，逐项验证：
+
+- [ ] `curl -sk https://$DOMAIN/api/portal/info` 返回 JSON
+- [ ] `systemctl is-active agent-p2p` 输出 `active`（VPS SSH 验证）
+- [ ] `cat skill_status.json` 状态为 `connected`
+- [ ] `ps aux | grep bridge.py` 能找到进程
+
+---
+
+## 九、归档脚本说明
+
+以下旧脚本保留但不再推荐使用：
+
+| 文件 | 说明 |
+|------|------|
+| `auto_install.py` | 旧版一键安装，有 inline bash 注入风险和交互式 input() |
+| `install.sh` | 旧版本地安装，只装依赖，不配置 env |
+| `setup.sh` | 旧版本地安装，需手动传 token，字段名不统一 |
+| `scripts/deploy_portal.py` | 旧版 VPS 部署，依赖 paramiko，有颜色输出干扰 AI |
