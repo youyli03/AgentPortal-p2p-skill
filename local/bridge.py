@@ -268,7 +268,28 @@ class AgentP2PSkill:
         ssl_context.verify_mode = ssl.CERT_NONE
         
         try:
-            async with websockets.connect(ws_url, ssl=ssl_context) as websocket:
+            # ws:// 不传 ssl 参数，wss:// 才传
+            # 解析真实 IP，避免本地代理（Clash TUN 等）拦截域名流量
+            import socket as _socket
+            from urllib.parse import urlparse
+            parsed = urlparse(ws_url)
+            hostname = parsed.hostname
+            port = parsed.port or (443 if ws_url.startswith('wss://') else 80)
+            try:
+                real_ip = _socket.getaddrinfo(hostname, port, _socket.AF_UNSPEC, _socket.SOCK_STREAM)[0][4][0]
+                if real_ip != hostname:
+                    ip_url = ws_url.replace(f'//{hostname}', f'//{real_ip}', 1)
+                    logger.info(f'使用 IP 直连: {real_ip}（域名 {hostname}）')
+                else:
+                    ip_url = ws_url
+            except Exception:
+                ip_url = ws_url
+
+            # ws:// 不传 ssl 参数，wss:// 才传；保持 Host 头为原始域名
+            host_header = hostname if (port in (80, 443)) else f'{hostname}:{port}'
+            ws_kwargs = {'ssl': ssl_context} if ws_url.startswith('wss://') else {}
+            ws_kwargs['additional_headers'] = {'Host': host_header}
+            async with websockets.connect(ip_url, **ws_kwargs) as websocket:
                 self.ws = websocket
                 self.reconnect_delay = 5  # 重置重连延迟
                 logger.info('WebSocket 连接成功')
