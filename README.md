@@ -140,7 +140,7 @@ python3 local/start.py start|stop|restart|status
 
 ```bash
 # 首次部署
-git clone https://github.com/yananli199307-dev/AgentPortal-p2p-skill.git /opt/agent-p2p
+git clone https://github.com/youyli03/AgentPortal-p2p-skill.git /opt/agent-p2p
 cd /opt/agent-p2p
 python3 -m venv venv
 source venv/bin/activate

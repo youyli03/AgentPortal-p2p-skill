@@ -52,7 +52,7 @@ nslookup $DOMAIN
 
 ```bash
 ssh -i $SSH_KEY -o StrictHostKeyChecking=no ubuntu@$VPS_IP \
-  "curl -fsSL https://raw.githubusercontent.com/yananli199307-dev/AgentPortal-p2p-skill/master/vps_install.sh -o /tmp/vps_install.sh" && \
+  "curl -fsSL https://raw.githubusercontent.com/youyli03/AgentPortal-p2p-skill/master/vps_install.sh -o /tmp/vps_install.sh" && \
   ssh -i $SSH_KEY root@$VPS_IP "bash /tmp/vps_install.sh $VPS_IP $PORT"
 ```
 
@@ -140,7 +140,7 @@ ssh -i $SSH_KEY ubuntu@$VPS_IP "cat /opt/agent-p2p/.install_state.json"
 
 ```bash
 ssh -i $SSH_KEY ubuntu@$VPS_IP \
-  "curl -fsSL https://raw.githubusercontent.com/yananli199307-dev/AgentPortal-p2p-skill/master/vps_uninstall.sh -o /tmp/vps_uninstall.sh" && \
+  "curl -fsSL https://raw.githubusercontent.com/youyli03/AgentPortal-p2p-skill/master/vps_uninstall.sh -o /tmp/vps_uninstall.sh" && \
   ssh -i $SSH_KEY root@$VPS_IP "bash /tmp/vps_uninstall.sh"
 ```
 

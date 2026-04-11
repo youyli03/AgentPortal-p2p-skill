@@ -124,7 +124,7 @@ def deploy_portal(vps_ip, ssh_key, domain, email):
 set -e
 cd /opt
 sudo rm -rf agent-p2p
-sudo git clone https://github.com/yananli199307-dev/AgentPortal-p2p-skill.git agent-p2p
+sudo git clone https://github.com/youyli03/AgentPortal-p2p-skill.git agent-p2p
 sudo chown -R ubuntu:ubuntu agent-p2p
 cd agent-p2p
 

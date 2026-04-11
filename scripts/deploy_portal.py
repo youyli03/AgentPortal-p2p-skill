@@ -217,7 +217,7 @@ class PortalDeployer:
         self.run_command(f"chown -R $(whoami):$(whoami) {self.remote_path}", sudo=True)
         
         # 从 GitHub 克隆最新代码
-        github_url = "https://github.com/yananli199307-dev/AgentPortal-p2p-skill.git"
+        github_url = "https://github.com/youyli03/AgentPortal-p2p-skill.git"
         
         # 如果目录已存在，先删除
         self.run_command(f"rm -rf {self.remote_path}")

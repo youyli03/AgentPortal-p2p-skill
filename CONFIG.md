@@ -27,7 +27,7 @@
    - 不要与其他服务共用
 
 3. **代码审计**
-   - 本 Skill 完全开源：https://github.com/yananli199307-dev/AgentPortal-p2p-skill
+   - 本 Skill 完全开源：https://github.com/youyli03/AgentPortal-p2p-skill
    - 欢迎审查代码，确认无恶意行为
    - 敏感操作均有日志记录
 

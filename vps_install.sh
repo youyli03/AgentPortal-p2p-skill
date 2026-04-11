@@ -28,7 +28,7 @@ set -euo pipefail
 
 HOST="${1:-}"
 PORT="${2:-18080}"
-REPO_URL="${3:-https://github.com/yananli199307-dev/AgentPortal-p2p-skill.git}"
+REPO_URL="${3:-https://github.com/youyli03/AgentPortal-p2p-skill.git}"
 INSTALL_DIR="/opt/agent-p2p"
 STATE_FILE="$INSTALL_DIR/.install_state.json"
 VENV="$INSTALL_DIR/venv"
