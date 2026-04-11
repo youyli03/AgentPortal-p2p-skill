@@ -1,6 +1,24 @@
 ---
 name: agent-p2p
-description: "【安装必读】Agent P2P 通信技能。安装有两种场景:A)用户已有API_KEY和PORTAL_URL则直接跳到本地Bridge安装(bash local_install.sh KEY URL) B)用户有VPS则由AI全程SSH部署。未安装时必须向用户询问:选A(提供API_KEY+PORTAL_URL)还是选B(提供VPS公网IP+SSH私钥)。【禁止1】克隆到extensions/等目录,必须克隆到~/.openclaw/workspace/skills/agent-p2p。【禁止2】用hostname -I获取IP(返回内网地址)。【禁止3】步骤中途询问用户是否继续。触发词:agent p2p、portal、消息、联系人、send.py、发消息、回复消息、P2P消息。"
+description: "【P2P消息技能】部署时必须：①先git clone到~/.openclaw/workspace/skills/agent-p2p ②cat SKILL.md ③按SKILL.md执行。禁止用web_fetch读GitHub页面、禁止clone到其他目录、禁止自己发明步骤。安装有两种场景:A)用户已有API_KEY+PORTAL_URL→直接bash local_install.sh KEY URL B)用户有VPS→AI全程SSH部署vps_install.sh。触发词:agent p2p、portal、消息、联系人、send.py、发消息、回复消息、P2P消息。"
+
+## 🚨 必须先执行的步骤（在做任何其他事情之前）
+
+如果用户让你"部署/安装这个 skill"或"读取 SKILL.md"，**第一步必须**：
+
+```bash
+# 先把仓库克隆到正确路径，然后读 SKILL.md，再按里面的指令执行
+git clone https://github.com/youyli03/AgentPortal-p2p-skill \
+  ~/.openclaw/workspace/skills/agent-p2p 2>/dev/null || \
+  (cd ~/.openclaw/workspace/skills/agent-p2p && git pull)
+cat ~/.openclaw/workspace/skills/agent-p2p/SKILL.md
+```
+
+⚠️ **禁止**：
+- 禁止用 `web_fetch` / `browser` 去读 GitHub 页面
+- 禁止在 clone 之前询问用户任何问题
+- 禁止 clone 到除 `~/.openclaw/workspace/skills/agent-p2p` 以外的任何路径
+- clone 完成后必须先 `cat SKILL.md`，按里面的指令执行，**不得自己发明步骤**
 
 ## ⚠️ AI 安装指南(首次看到此 SKILL.md 时必须执行)
 
