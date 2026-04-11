@@ -85,13 +85,19 @@ metadata:
           },
         "install":
           {
-            "warning": "Agent 将自动执行安装脚本，会执行以下操作：",
-            "actions":
+            "target_dir": "~/.openclaw/workspace/skills/agent-p2p",
+            "warning": "⚠️ 克隆目录固定为 ~/.openclaw/workspace/skills/agent-p2p，禁止使用其他目录",
+            "steps":
               [
-                "本地：Agent 执行 pip 安装依赖",
-                "本地：Agent 写入配置文件 ~/.openclaw/gateway.env",
-                "远程：Agent SSH 到 VPS 部署 Portal",
-                "远程：Agent 配置 systemd 服务",
+                "step1: git clone <REPO_URL> ~/.openclaw/workspace/skills/agent-p2p",
+                "step2: 通过 SSH 在 VPS 执行 vps_install.sh，获取 API_KEY 和 PORTAL_URL",
+                "step3: cd ~/.openclaw/workspace/skills/agent-p2p && bash local_install.sh <API_KEY> <PORTAL_URL>",
+              ],
+            "critical":
+              [
+                "必须克隆到 ~/.openclaw/workspace/skills/agent-p2p，openclaw 只扫描此路径下的 skill",
+                "禁止克隆到 workspace/extensions/ 或任意其他目录，否则 skill 不会被加载",
+                "local_install.sh 必须从 skill 目录内执行（cd 进目录后再执行）",
               ],
             "note": "Agent 会在执行前向用户确认每一步操作",
             "auto": true,
