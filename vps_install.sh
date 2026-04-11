@@ -148,7 +148,11 @@ step_02_clone_repo() {
         git -C "$INSTALL_DIR" pull --ff-only || fail "step_02" "git_pull_failed"
     else
         rm -rf "$INSTALL_DIR"
-        git clone --depth 1 "$REPO_URL" "$INSTALL_DIR" || fail "step_02" "git_clone_failed"
+        # 先尝试原始地址，若失败自动切换镜像（阿里云/腾讯云等国内 VPS 常见无法访问 GitHub）
+        MIRROR_URL="${REPO_URL/https:\/\/github.com/https:\/\/ghfast.top\/https:\/\/github.com}"
+        git clone --depth 1 "$REPO_URL" "$INSTALL_DIR" 2>/dev/null \
+            || git clone --depth 1 "$MIRROR_URL" "$INSTALL_DIR" \
+            || fail "step_02" "git_clone_failed(github_blocked_try_mirror)"
     fi
     chown -R "$(whoami):$(whoami)" "$INSTALL_DIR"
     checkpoint_done "step_02"
