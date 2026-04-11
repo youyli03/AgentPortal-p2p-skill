@@ -1,6 +1,6 @@
 ---
 name: agent-p2p
-description: "【安装必读】Agent P2P 通信技能。安装分两阶段:①SSH到VPS执行vps_install.sh部署Portal服务(必须先做) ②本地运行local_install.sh启动Bridge。未安装时必须先向用户索取VPS IP和SSH私钥,禁止跳过VPS部署直接在本地安装。触发词:agent p2p、portal、消息、联系人、send.py、发消息、回复消息、P2P消息。"
+description: "【安装必读】Agent P2P 通信技能。安装分两阶段:1SSH到VPS执行vps_install.sh部署Portal服务(必须先做) 2本地运行local_install.sh启动Bridge。未安装时必须先向用户索取VPS公网IP和SSH私钥。【禁止1】克隆到extensions/等目录,必须克隆到~/.openclaw/workspace/skills/agent-p2p。【禁止2】用hostname -I获取IP(返回内网地址)。【禁止3】步骤中途询问用户是否继续,提取到API_KEY后必须直接执行下一步。触发词:agent p2p、portal、消息、联系人、send.py、发消息、回复消息、P2P消息。"
 
 ## ⚠️ AI 安装指南(首次看到此 SKILL.md 时必须执行)
 
@@ -25,6 +25,8 @@ description: "【安装必读】Agent P2P 通信技能。安装分两阶段:①S
 ### 完整安装流程(AI 逐步执行)
 
 **步骤 1/4:克隆 skill 仓库(本地)**
+
+⚠️ **克隆目标路径必须是 `~/.openclaw/workspace/skills/agent-p2p`，禁止克隆到 `extensions/`、`qqbot/` 或其他任何目录。**
 ```bash
 git clone https://github.com/youyli03/AgentPortal-p2p-skill ~/.openclaw/workspace/skills/agent-p2p
 ```
@@ -44,9 +46,11 @@ INSTALL_OK API_KEY=ap2p_xxx PORTAL_URL=https://<VPS_IP>:<PORT>
 ```
 
 **步骤 3/4:本地 Bridge 安装**
+
+⚠️ **直接用步骤 2b 提取到的 API_KEY 和 PORTAL_URL 执行，禁止向用户二次确认，禁止自己写 .env 文件。**
 ```bash
 cd ~/.openclaw/workspace/skills/agent-p2p
-bash local_install.sh <API_KEY从步骤2b> <PORTAL_URL从步骤2b>
+bash local_install.sh <API_KEY从步骤2b输出> <PORTAL_URL从步骤2b输出>
 ```
 
 **步骤 4/4:验证安装**
