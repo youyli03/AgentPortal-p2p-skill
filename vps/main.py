@@ -516,9 +516,9 @@ async def exchange_api_key(request: ApiKeyExchangeRequest):
     # 保存联系人关系
     cursor.execute('''
         INSERT OR REPLACE INTO contacts 
-        (portal_url, api_key, SHARED_KEY, is_verified, created_at)
-        VALUES (?, ?, ?, TRUE, ?)
-    ''', (request.portal_url, SHARED_KEY, request.SHARED_KEY, get_now().strftime('%Y-%m-%d %H:%M:%S')))
+        (portal_url, SHARED_KEY, is_verified, created_at)
+        VALUES (?, ?, TRUE, ?)
+    ''', (request.portal_url, request.SHARED_KEY, get_now().strftime('%Y-%m-%d %H:%M:%S')))
     
     conn.commit()
     conn.close()

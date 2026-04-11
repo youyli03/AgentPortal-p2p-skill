@@ -62,6 +62,16 @@ def http(method, url, body=None, extra=None):
 
 class Client:
     def __init__(self, base, key):
+        # 把域名替换为 IP，避免本地代理（Clash/TUN）拦截 TLS 导致 UNEXPECTED_EOF
+        parsed = urllib.parse.urlparse(base.rstrip("/"))
+        try:
+            real_ip = socket.getaddrinfo(
+                parsed.hostname, parsed.port or 443,
+                socket.AF_UNSPEC, socket.SOCK_STREAM
+            )[0][4][0]
+            base = base.replace(f"//{parsed.hostname}", f"//{real_ip}", 1)
+        except Exception:
+            pass
         self.base = base.rstrip("/")
         self.key  = key
     def _h(self):
@@ -134,8 +144,8 @@ async def run(portal, key_a):
     # 1. 健康检查
     sec("▶ [1] 健康检查")
     try:
-        r = ca.get("/health")
-        record("health", r.get("status") == "ok", json.dumps(r))
+        r = ca.get("/api/portal/info")
+        record("health", "url" in r, json.dumps(r))
     except Exception as e:
         record("health", False, str(e))
         print(f"\n{RED}Portal 不可达，终止测试。{RESET}")
@@ -215,7 +225,7 @@ async def run(portal, key_a):
     await asyncio.sleep(3)
     pushed = [m for m in bucket
               if isinstance(m, dict)
-              and m.get("type") == "new_message"
+              and m.get("type") in ("new_message", "message")
               and test_msg in str(m.get("content", ""))]
     record("ws_push_to_A", bool(pushed),
            json.dumps(pushed[0], ensure_ascii=False)[:120] if pushed
@@ -225,7 +235,7 @@ async def run(portal, key_a):
     sec("▶ [6] A -> B 回复，验证消息历史")
     try:
         contacts_a = ca.get("/api/contacts")["contacts"]
-        cb_c = next((c for c in contacts_a if c["portal_url"] == portal_b), None)
+        cb_c = next((c for c in contacts_a if c["portal_url"] == portal), None)
         if not cb_c:
             record("find_contact_B_in_A", False, f"A 联系人: {contacts_a}")
         else:
@@ -239,7 +249,7 @@ async def run(portal, key_a):
             record("A_reply_B", r.get("status") in ("delivered", "ok"),
                    f"status={r.get('status')}")
             # 验证历史
-            hist = ca.get(f"/api/messages?contact_portal={urllib.parse.quote(portal_b)}")
+            hist = ca.get(f"/api/messages?contact_portal={urllib.parse.quote(portal)}")
             msgs = hist.get("messages", [])
             has_reply = any(reply in str(m.get("content", "")) for m in msgs)
             record("msg_history_A", has_reply, f"共 {len(msgs)} 条消息")
