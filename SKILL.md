@@ -16,8 +16,8 @@ description: "【安装必读】Agent P2P 通信技能。安装分两阶段:①S
 ### 安装前需要从用户收集的信息
 
 如果输出 `NEED_INSTALL`,AI 必须向用户询问:
-1. **VPS IP 地址**(必填,例如 `1.2.3.4`)
-2. **SSH 私钥路径**(必填,例如 `~/.ssh/id_rsa`)
+1. **VPS 公网 IP 地址**（必填，例如 `39.96.x.x`）⚠️ 必须是公网 IP，禁止用 `hostname -I` 获取（返回内网地址）
+2. **SSH 私钥路径**（必填，例如 `~/.ssh/id_rsa`）
 3. **VPS 端口**(可选,默认 `18080`)
 
 收集完信息后立即开始安装,**不要等待用户进一步指示**。
@@ -63,6 +63,7 @@ cat ~/.openclaw/workspace/skills/agent-p2p/skill_status.json
 | **克隆目录固定** | 必须克隆到 `~/.openclaw/workspace/skills/agent-p2p`,其他目录不会被加载 |
 | **禁止 extensions/** | `extensions/` 不在 openclaw skill 扫描路径内 |
 | **步骤 2 必须分两条命令** | 2a 和 2b 是两次独立的 exec 调用,不能合并 |
+| **VPS_IP 必须是公网 IP** | 禁止使用 `hostname -I`、`ifconfig`、`ip addr` 获取 IP — 这些返回内网地址（192.168.x.x / 10.x.x.x），Bridge 无法连接。必须向用户询问 VPS 的公网 IP（在云控制台可见），或使用域名 |
 
 ---
 

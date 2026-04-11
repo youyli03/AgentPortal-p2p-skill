@@ -58,6 +58,42 @@ if [[ "$PORT" -lt 1024 ]] && [[ "$(id -u)" -ne 0 ]]; then
     exit 1
 fi
 
+# ── 内网 IP 检测：自动探测公网 IP ────────────────────────────
+is_private_ip() {
+    local ip="$1"
+    [[ "$ip" =~ ^10\. ]] && return 0
+    [[ "$ip" =~ ^172\.(1[6-9]|2[0-9]|3[01])\. ]] && return 0
+    [[ "$ip" =~ ^192\.168\. ]] && return 0
+    [[ "$ip" =~ ^127\. ]] && return 0
+    return 1
+}
+
+if is_private_ip "$HOST"; then
+    log_warn "⚠️  检测到内网 IP: $HOST"
+    log_warn "   内网 IP 无法从外部访问，正在自动探测公网 IP..."
+    PUBLIC_IP=""
+    PUBLIC_IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null) || true
+    [[ -z "$PUBLIC_IP" ]] && PUBLIC_IP=$(curl -s --max-time 5 https://ip.sb 2>/dev/null) || true
+    [[ -z "$PUBLIC_IP" ]] && PUBLIC_IP=$(curl -s --max-time 5 https://ifconfig.me 2>/dev/null) || true
+    if [[ -z "$PUBLIC_IP" ]] || is_private_ip "$PUBLIC_IP"; then
+        echo "INSTALL_FAILED STEP=params ERROR=private_ip_and_no_public_ip_detected HOST=$HOST"
+        echo ""
+        echo "═══════════════════════════════════════════════════════"
+        echo "⛔ 错误：传入的 HOST 是内网地址 ($HOST)，且无法自动探测公网 IP。"
+        echo ""
+        echo "请重新运行脚本并传入 VPS 的公网 IP 地址，例如："
+        echo "  bash vps_install.sh 39.96.x.x $PORT"
+        echo ""
+        echo "你可以在 VPS 控制台 / 云厂商页面找到公网 IP。"
+        echo "提示给 Agent：请向用户索取 VPS 公网 IP（非内网 192.168/10.x），"
+        echo "         不要使用 hostname -I 或 ifconfig 获取地址。"
+        echo "═══════════════════════════════════════════════════════"
+        exit 1
+    fi
+    log_warn "   自动使用公网 IP: $PUBLIC_IP（替代内网 IP: $HOST）"
+    HOST="$PUBLIC_IP"
+fi
+
 PORTAL_URL="https://${HOST}:${PORT}"
 log_info "Portal URL 将是: $PORTAL_URL"
 
