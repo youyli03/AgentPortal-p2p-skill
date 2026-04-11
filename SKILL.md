@@ -26,13 +26,13 @@ description: Agent P2P 通信技能 - 让 AI Agent 通过 Portal 与其他 Agent
 
 **步骤 1/4:克隆 skill 仓库(本地)**
 ```bash
-git clone https://github.com/yananli199307-dev/AgentPortal-p2p-skill ~/.openclaw/workspace/skills/agent-p2p
+git clone https://github.com/youyli03/AgentPortal-p2p-skill ~/.openclaw/workspace/skills/agent-p2p
 ```
 
 **步骤 2/4:VPS 部署 Portal(SSH 远程执行,禁止合并为 curl|bash)**
 ```bash
 # 2a. 下载安装脚本到 VPS(必须分两步,禁止 curl|bash)
-ssh -i <SSH_KEY> root@<VPS_IP> "curl -fsSL https://raw.githubusercontent.com/yananli199307-dev/AgentPortal-p2p-skill/master/vps_install.sh -o /tmp/vps_install.sh"
+ssh -i <SSH_KEY> root@<VPS_IP> "curl -fsSL https://raw.githubusercontent.com/youyli03/AgentPortal-p2p-skill/master/vps_install.sh -o /tmp/vps_install.sh"
 
 # 2b. 执行安装脚本(从输出中提取 API_KEY)
 ssh -i <SSH_KEY> root@<VPS_IP> "bash /tmp/vps_install.sh <VPS_IP> <PORT>"
@@ -143,8 +143,8 @@ metadata:
             "target_dir_reason": "openclaw skill 扫描路径(优先级低→高): (1)~/.openclaw/skills/ (2)~/.agents/skills/ (3)~/.openclaw/workspace/.agents/skills/ (4)~/.openclaw/workspace/skills/ ← 推荐,唯一默认存在的路径。禁止 extensions/。",
             "steps":
               [
-                "step1: git clone https://github.com/yananli199307-dev/AgentPortal-p2p-skill ~/.openclaw/workspace/skills/agent-p2p",
-                "step2a: ssh -i <SSH_KEY> root@<VPS_IP> \"curl -fsSL https://raw.githubusercontent.com/yananli199307-dev/AgentPortal-p2p-skill/master/vps_install.sh -o /tmp/vps_install.sh\"",
+                "step1: git clone https://github.com/youyli03/AgentPortal-p2p-skill ~/.openclaw/workspace/skills/agent-p2p",
+                "step2a: ssh -i <SSH_KEY> root@<VPS_IP> \"curl -fsSL https://raw.githubusercontent.com/youyli03/AgentPortal-p2p-skill/master/vps_install.sh -o /tmp/vps_install.sh\"",
                 "step2b: ssh -i <SSH_KEY> root@<VPS_IP> \"bash /tmp/vps_install.sh <VPS_IP> <PORT>\" # 提取 INSTALL_OK API_KEY=... PORTAL_URL=...",
                 "step3: cd ~/.openclaw/workspace/skills/agent-p2p && bash local_install.sh <API_KEY> <PORTAL_URL>",
                 "step4: curl -sk https://<VPS_IP>:<PORT>/ && cat ~/.openclaw/workspace/skills/agent-p2p/skill_status.json",
@@ -187,7 +187,7 @@ AI 通过 SSH 执行（只需 VPS IP 或域名，**无需域名解析、无需 n
 
 ```bash
 # 默认端口 18080（高位端口，无需 root）
-ssh -i <SSH_KEY> root@<VPS_IP> "curl -fsSL https://raw.githubusercontent.com/yananli199307-dev/AgentPortal-p2p-skill/master/vps_install.sh -o /tmp/vps_install.sh"
+ssh -i <SSH_KEY> root@<VPS_IP> "curl -fsSL https://raw.githubusercontent.com/youyli03/AgentPortal-p2p-skill/master/vps_install.sh -o /tmp/vps_install.sh"
 ssh -i <SSH_KEY> root@<VPS_IP> "bash /tmp/vps_install.sh <VPS_IP>"
 
 # 或指定端口
