@@ -1,6 +1,6 @@
 ---
 name: agent-p2p
-description: "【安装必读】Agent P2P 通信技能。安装分两阶段:1SSH到VPS执行vps_install.sh部署Portal服务(必须先做) 2本地运行local_install.sh启动Bridge。未安装时必须先向用户索取VPS公网IP和SSH私钥。【禁止1】克隆到extensions/等目录,必须克隆到~/.openclaw/workspace/skills/agent-p2p。【禁止2】用hostname -I获取IP(返回内网地址)。【禁止3】步骤中途询问用户是否继续,提取到API_KEY后必须直接执行下一步。触发词:agent p2p、portal、消息、联系人、send.py、发消息、回复消息、P2P消息。"
+description: "【安装必读】Agent P2P 通信技能。安装有两种场景:A)用户已有API_KEY和PORTAL_URL则直接跳到本地Bridge安装(bash local_install.sh KEY URL) B)用户有VPS则由AI全程SSH部署。未安装时必须向用户询问:选A(提供API_KEY+PORTAL_URL)还是选B(提供VPS公网IP+SSH私钥)。【禁止1】克隆到extensions/等目录,必须克隆到~/.openclaw/workspace/skills/agent-p2p。【禁止2】用hostname -I获取IP(返回内网地址)。【禁止3】步骤中途询问用户是否继续。触发词:agent p2p、portal、消息、联系人、send.py、发消息、回复消息、P2P消息。"
 
 ## ⚠️ AI 安装指南(首次看到此 SKILL.md 时必须执行)
 
@@ -15,12 +15,28 @@ description: "【安装必读】Agent P2P 通信技能。安装分两阶段:1SSH
 
 ### 安装前需要从用户收集的信息
 
-如果输出 `NEED_INSTALL`,AI 必须向用户询问:
-1. **VPS 公网 IP 地址**（必填，例如 `39.96.x.x`）⚠️ 必须是公网 IP，禁止用 `hostname -I` 获取（返回内网地址）
-2. **SSH 私钥路径**（必填，例如 `~/.ssh/id_rsa`）
+如果输出 `NEED_INSTALL`,AI 必须先向用户询问选择**哪种安装场景**:
+
+> **"请问你想用哪种方式安装?(回复数字即可)**
+> **1) 已有 Portal 在运行** — 提供 API Key 和 Portal URL,我直接启动本地 Bridge
+> **2) 我来帮你部署 VPS** — 提供 VPS 公网 IP 和 SSH 私钥路径,我全程自动安装"**
+
+#### 场景 A:用户已有 Portal(只需本地 Bridge)
+
+用户只需提供:
+- `API_KEY`(格式 `ap2p_xxx`,由 VPS Portal 生成)
+- `PORTAL_URL`(格式 `https://IP:PORT`)
+
+AI 直接跳到**步骤 3/4**,执行本地 Bridge 安装,**无需 SSH、无需 VPS 操作**。
+
+#### 场景 B:由 AI 代为部署 VPS
+
+用户需要提供:
+1. **VPS 公网 IP 地址**(必填,例如 `39.96.x.x`)⚠️ 必须是公网 IP,禁止用 `hostname -I` 获取(返回内网地址)
+2. **SSH 私钥路径**(必填,例如 `~/.ssh/id_rsa`)
 3. **VPS 端口**(可选,默认 `18080`)
 
-收集完信息后立即开始安装,**不要等待用户进一步指示**。
+收集完信息后立即开始安装,**不要等待用户进一步指示**。执行步骤 1/4 → 2/4 → 3/4 → 4/4。
 
 ### 完整安装流程(AI 逐步执行)
 
@@ -148,10 +164,11 @@ metadata:
             "target_dir_reason": "openclaw skill 扫描路径(优先级低→高): (1)~/.openclaw/skills/ (2)~/.agents/skills/ (3)~/.openclaw/workspace/.agents/skills/ (4)~/.openclaw/workspace/skills/ ← 推荐,唯一默认存在的路径。禁止 extensions/。",
             "steps":
               [
-                "step1: git clone https://github.com/youyli03/AgentPortal-p2p-skill ~/.openclaw/workspace/skills/agent-p2p",
-                "step2a: ssh -i <SSH_KEY> root@<VPS_IP> \"curl -fsSL https://raw.githubusercontent.com/youyli03/AgentPortal-p2p-skill/master/vps_install.sh -o /tmp/vps_install.sh\"",
-                "step2b: ssh -i <SSH_KEY> root@<VPS_IP> \"bash /tmp/vps_install.sh <VPS_IP> <PORT>\" # 提取 INSTALL_OK API_KEY=... PORTAL_URL=...",
-                "step3: cd ~/.openclaw/workspace/skills/agent-p2p && bash local_install.sh <API_KEY> <PORTAL_URL>",
+                "【必须先问用户】选A:已有API_KEY+PORTAL_URL → 直接执行step3 | 选B:有VPS → 执行step1→step2a→step2b→step3",
+                "step1(仅场景B): git clone https://github.com/youyli03/AgentPortal-p2p-skill ~/.openclaw/workspace/skills/agent-p2p",
+                "step2a(仅场景B): ssh -i <SSH_KEY> root@<VPS_IP> \"curl -fsSL https://raw.githubusercontent.com/youyli03/AgentPortal-p2p-skill/master/vps_install.sh -o /tmp/vps_install.sh\"",
+                "step2b(仅场景B): ssh -i <SSH_KEY> root@<VPS_IP> \"bash /tmp/vps_install.sh <VPS_IP> <PORT>\" # 提取 INSTALL_OK API_KEY=... PORTAL_URL=...",
+                "step3(必须): cd ~/.openclaw/workspace/skills/agent-p2p && bash local_install.sh <API_KEY> <PORTAL_URL>",
                 "step4: curl -sk https://<VPS_IP>:<PORT>/ && cat ~/.openclaw/workspace/skills/agent-p2p/skill_status.json",
               ],
             "critical":
